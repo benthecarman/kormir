@@ -59,6 +59,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "dlc-messages"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "179aeea57514dad634802716f6759febd88f78f111979747ddcb7d9afc9c9048"
+dependencies = [
+ "bitcoin",
+ "dlc",
+ "lightning",
+ "secp256k1-zkp",
+]
+
+[[package]]
 name = "getrandom"
 version = "0.2.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -76,6 +88,8 @@ dependencies = [
  "anyhow",
  "bitcoin",
  "dlc",
+ "dlc-messages",
+ "lightning",
 ]
 
 [[package]]
@@ -87,6 +101,15 @@ name = "libc"
 version = "0.2.148"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9cdc71e17332e86d2e1d38c1f99edcb6288ee11b815fb1a4b049eaa2114d369b"
+
+[[package]]
+name = "lightning"
+version = "0.0.113"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "087add70f81d2fdc6d4409bc0cef69e11ad366ef1d0068550159bd22b3ac8664"
+dependencies = [
+ "bitcoin",
+]
 
 [[package]]
 name = "miniscript"
