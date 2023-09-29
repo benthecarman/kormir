@@ -38,8 +38,8 @@ pub fn schnorr_sign_with_nonce<S: Signing>(
     // concat tag || msg
     let mut m = Vec::with_capacity(64 + 32 + 32 + msg.len());
     m.extend(SCHNORR_TAG_BYTES);
-    m.extend(rx.clone());
-    m.extend(xonly);
+    m.extend(rx.serialize());
+    m.extend(xonly.serialize());
     m.extend(msg);
     let e = sha256::Hash::hash(&m);
 
@@ -50,7 +50,7 @@ pub fn schnorr_sign_with_nonce<S: Signing>(
     let sig = k.add_tweak(&Scalar::from(challenge)).unwrap();
 
     let mut sig_bytes = Vec::with_capacity(64);
-    sig_bytes.extend(rx);
+    sig_bytes.extend(rx.serialize());
     sig_bytes.extend(sig.secret_bytes());
     Signature::from_slice(&sig_bytes).unwrap()
 }
