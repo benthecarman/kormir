@@ -4,13 +4,12 @@ pub mod utils;
 use crate::storage::Storage;
 use anyhow::anyhow;
 use bitcoin::hashes::sha256;
-use bitcoin::secp256k1::schnorr::Signature;
 use bitcoin::secp256k1::{All, Message, Secp256k1, SecretKey};
 use bitcoin::util::bip32::{ChildNumber, DerivationPath, ExtendedPrivKey};
 use bitcoin::util::key::KeyPair;
 use bitcoin::XOnlyPublicKey;
 use dlc_messages::oracle_msgs::{
-    EnumEventDescriptor, EventDescriptor, OracleAnnouncement, OracleEvent,
+    EnumEventDescriptor, EventDescriptor, OracleAnnouncement, OracleAttestation, OracleEvent,
 };
 use lightning::util::ser::Writeable;
 use std::str::FromStr;
@@ -109,7 +108,7 @@ impl<S: Storage> Oracle<S> {
         Ok((id, ann))
     }
 
-    pub fn sign_enum_event(&self, id: u32, outcome: String) -> anyhow::Result<Signature> {
+    pub fn sign_enum_event(&self, id: u32, outcome: String) -> anyhow::Result<OracleAttestation> {
         let Some(data) = self.storage.get_event(id)? else {
             return Err(anyhow::anyhow!("Event not found"));
         };
@@ -156,7 +155,13 @@ impl<S: Storage> Oracle<S> {
 
         self.storage.save_signatures(id, vec![sig])?;
 
-        Ok(sig)
+        let attestation = OracleAttestation {
+            oracle_public_key: self.public_key(),
+            signatures: vec![sig],
+            outcomes: vec![outcome],
+        };
+
+        Ok(attestation)
     }
 }
 
@@ -164,6 +169,7 @@ impl<S: Storage> Oracle<S> {
 mod test {
     use super::*;
     use crate::storage::MemoryStorage;
+    use bitcoin::hashes::hex::ToHex;
     use bitcoin::secp256k1::rand::{thread_rng, Rng};
     use bitcoin::Network;
 
@@ -200,17 +206,30 @@ mod test {
 
         let event_id = "test".to_string();
         let outcomes = vec!["a".to_string(), "b".to_string()];
-        let event_maturity_epoch = 100;
+        let event_maturity_epoch = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs() as u32
+            + 86400;
         let (id, ann) = oracle
-            .create_enum_event(event_id.clone(), outcomes.clone(), event_maturity_epoch)
+            .create_enum_event(event_id, outcomes.clone(), event_maturity_epoch)
             .unwrap();
 
-        let sig = oracle.sign_enum_event(id, "a".to_string()).unwrap();
+        println!("{}", ann.encode().to_hex());
+
+        let attestation = oracle.sign_enum_event(id, "a".to_string()).unwrap();
+        assert!(attestation.outcomes.contains(&"a".to_string()));
+        assert_eq!(attestation.oracle_public_key, oracle.public_key());
+        assert_eq!(attestation.signatures.len(), 1);
+        assert_eq!(attestation.outcomes.len(), 1);
+        let sig = attestation.signatures.first().unwrap();
 
         // check first 32 bytes of signature is expected nonce
         let expected_nonce = ann.oracle_event.oracle_nonces.first().unwrap().serialize();
         let bytes = sig.encode();
         let (rx, _sig) = bytes.split_at(32);
+
+        println!("{}", attestation.encode().to_hex());
 
         assert_eq!(rx, expected_nonce)
     }
