@@ -1,4 +1,5 @@
 use anyhow::anyhow;
+use async_trait::async_trait;
 use bitcoin::secp256k1::rand;
 use bitcoin::secp256k1::schnorr::Signature;
 use dlc_messages::oracle_msgs::OracleAnnouncement;
@@ -6,23 +7,29 @@ use std::collections::HashMap;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, RwLock};
 
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 pub trait Storage {
     /// Get the next `num` nonce indexes
-    fn get_next_nonce_indexes(&self, num: usize) -> anyhow::Result<Vec<u32>>;
+    async fn get_next_nonce_indexes(&self, num: usize) -> anyhow::Result<Vec<u32>>;
 
     /// Save the announcement and return the identifier
     /// for the announcement
-    fn save_announcement(
+    async fn save_announcement(
         &self,
         announcement: OracleAnnouncement,
         indexes: Vec<u32>,
     ) -> anyhow::Result<u32>;
 
     /// Save signatures for a given event
-    fn save_signatures(&self, id: u32, sigs: Vec<Signature>) -> anyhow::Result<OracleEventData>;
+    async fn save_signatures(
+        &self,
+        id: u32,
+        sigs: Vec<Signature>,
+    ) -> anyhow::Result<OracleEventData>;
 
     /// Get the announcement data for the given id
-    fn get_event(&self, id: u32) -> anyhow::Result<Option<OracleEventData>>;
+    async fn get_event(&self, id: u32) -> anyhow::Result<Option<OracleEventData>>;
 }
 
 /// Data saved for an oracle announcement
@@ -54,8 +61,10 @@ impl Default for MemoryStorage {
     }
 }
 
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 impl Storage for MemoryStorage {
-    fn get_next_nonce_indexes(&self, num: usize) -> anyhow::Result<Vec<u32>> {
+    async fn get_next_nonce_indexes(&self, num: usize) -> anyhow::Result<Vec<u32>> {
         let mut current_index = self.current_index.fetch_add(num as u32, Ordering::Relaxed);
         let mut indexes = Vec::with_capacity(num);
         for _ in 0..num {
@@ -65,7 +74,7 @@ impl Storage for MemoryStorage {
         Ok(indexes)
     }
 
-    fn save_announcement(
+    async fn save_announcement(
         &self,
         announcement: OracleAnnouncement,
         indexes: Vec<u32>,
@@ -84,7 +93,11 @@ impl Storage for MemoryStorage {
         Ok(id)
     }
 
-    fn save_signatures(&self, id: u32, sigs: Vec<Signature>) -> anyhow::Result<OracleEventData> {
+    async fn save_signatures(
+        &self,
+        id: u32,
+        sigs: Vec<Signature>,
+    ) -> anyhow::Result<OracleEventData> {
         let mut data = self.data.try_write().unwrap();
         let Some(mut event) = data.get(&id).cloned() else {
             return Err(anyhow!("Not Found"));
@@ -100,7 +113,7 @@ impl Storage for MemoryStorage {
         Ok(event)
     }
 
-    fn get_event(&self, id: u32) -> anyhow::Result<Option<OracleEventData>> {
+    async fn get_event(&self, id: u32) -> anyhow::Result<Option<OracleEventData>> {
         let data = self.data.try_read().unwrap();
         Ok(data.get(&id).cloned())
     }

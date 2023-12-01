@@ -1,6 +1,7 @@
 use crate::models::event::{Event, NewEvent};
 use crate::models::event_nonce::{EventNonce, NewEventNonce};
 use anyhow::anyhow;
+use async_trait::async_trait;
 use bitcoin::secp256k1::schnorr::Signature;
 use bitcoin::secp256k1::XOnlyPublicKey;
 use diesel::r2d2::{ConnectionManager, Pool};
@@ -41,8 +42,9 @@ impl PostgresStorage {
     }
 }
 
+#[async_trait]
 impl Storage for PostgresStorage {
-    fn get_next_nonce_indexes(&self, num: usize) -> anyhow::Result<Vec<u32>> {
+    async fn get_next_nonce_indexes(&self, num: usize) -> anyhow::Result<Vec<u32>> {
         let mut current_index = self.current_index.fetch_add(num as u32, Ordering::SeqCst);
         let mut indexes = Vec::with_capacity(num);
         for _ in 0..num {
@@ -52,7 +54,7 @@ impl Storage for PostgresStorage {
         Ok(indexes)
     }
 
-    fn save_announcement(
+    async fn save_announcement(
         &self,
         announcement: OracleAnnouncement,
         indexes: Vec<u32>,
@@ -95,7 +97,7 @@ impl Storage for PostgresStorage {
         })
     }
 
-    fn save_signatures(
+    async fn save_signatures(
         &self,
         id: u32,
         signatures: Vec<Signature>,
@@ -136,7 +138,7 @@ impl Storage for PostgresStorage {
         })
     }
 
-    fn get_event(&self, id: u32) -> anyhow::Result<Option<OracleEventData>> {
+    async fn get_event(&self, id: u32) -> anyhow::Result<Option<OracleEventData>> {
         let id = id as i32;
         let mut conn = self.db_pool.get()?;
 

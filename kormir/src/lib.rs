@@ -58,13 +58,13 @@ impl<S: Storage> Oracle<S> {
         self.signing_key.x_only_public_key(&self.secp).0
     }
 
-    pub fn create_enum_event(
+    pub async fn create_enum_event(
         &self,
         event_id: String,
         outcomes: Vec<String>,
         event_maturity_epoch: u32,
     ) -> anyhow::Result<(u32, OracleAnnouncement)> {
-        let indexes = self.storage.get_next_nonce_indexes(1)?;
+        let indexes = self.storage.get_next_nonce_indexes(1).await?;
         let oracle_nonces = indexes
             .iter()
             .map(|i| {
@@ -103,13 +103,17 @@ impl<S: Storage> Oracle<S> {
         ann.validate(&self.secp)
             .map_err(|_| anyhow::anyhow!("Created invalid announcement"))?;
 
-        let id = self.storage.save_announcement(ann.clone(), indexes)?;
+        let id = self.storage.save_announcement(ann.clone(), indexes).await?;
 
         Ok((id, ann))
     }
 
-    pub fn sign_enum_event(&self, id: u32, outcome: String) -> anyhow::Result<OracleAttestation> {
-        let Some(data) = self.storage.get_event(id)? else {
+    pub async fn sign_enum_event(
+        &self,
+        id: u32,
+        outcome: String,
+    ) -> anyhow::Result<OracleAttestation> {
+        let Some(data) = self.storage.get_event(id).await? else {
             return Err(anyhow::anyhow!("Event not found"));
         };
         if !data.signatures.is_empty() {
@@ -153,7 +157,7 @@ impl<S: Storage> Oracle<S> {
             return Err(anyhow!("Produced invalid signature"));
         };
 
-        self.storage.save_signatures(id, vec![sig])?;
+        self.storage.save_signatures(id, vec![sig]).await?;
 
         let attestation = OracleAttestation {
             oracle_public_key: self.public_key(),
@@ -180,8 +184,8 @@ mod test {
         Oracle::from_xpriv(MemoryStorage::default(), xpriv).unwrap()
     }
 
-    #[test]
-    fn test_create_enum_event() {
+    #[tokio::test]
+    async fn test_create_enum_event() {
         let oracle = create_oracle();
 
         let event_id = "test".to_string();
@@ -189,6 +193,7 @@ mod test {
         let event_maturity_epoch = 100;
         let (_, ann) = oracle
             .create_enum_event(event_id.clone(), outcomes.clone(), event_maturity_epoch)
+            .await
             .unwrap();
 
         assert!(ann.validate(&oracle.secp).is_ok());
@@ -200,8 +205,8 @@ mod test {
         );
     }
 
-    #[test]
-    fn test_sign_enum_event() {
+    #[tokio::test]
+    async fn test_sign_enum_event() {
         let oracle = create_oracle();
 
         let event_id = "test".to_string();
@@ -213,11 +218,12 @@ mod test {
             + 86400;
         let (id, ann) = oracle
             .create_enum_event(event_id, outcomes.clone(), event_maturity_epoch)
+            .await
             .unwrap();
 
         println!("{}", ann.encode().to_hex());
 
-        let attestation = oracle.sign_enum_event(id, "a".to_string()).unwrap();
+        let attestation = oracle.sign_enum_event(id, "a".to_string()).await.unwrap();
         assert!(attestation.outcomes.contains(&"a".to_string()));
         assert_eq!(attestation.oracle_public_key, oracle.public_key());
         assert_eq!(attestation.signatures.len(), 1);

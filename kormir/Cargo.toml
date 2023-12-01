@@ -5,7 +5,11 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0"
+async-trait = "0.1.74"
 bitcoin = "0.29.2"
 dlc = "0.4.0"
 dlc-messages = "0.4.0"
 lightning = "0.0.113"
+
+[dev-dependencies]
+tokio = { version = "1.11.0", features = ["full"] }
