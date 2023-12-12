@@ -58,6 +58,16 @@ impl<S: Storage> Oracle<S> {
         self.signing_key.x_only_public_key(&self.secp).0
     }
 
+    fn get_nonce_key(&self, index: u32) -> SecretKey {
+        self.nonce_xpriv
+            .derive_priv(
+                &self.secp,
+                &[ChildNumber::from_hardened_idx(index).unwrap()],
+            )
+            .unwrap()
+            .private_key
+    }
+
     pub async fn create_enum_event(
         &self,
         event_id: String,
@@ -68,11 +78,8 @@ impl<S: Storage> Oracle<S> {
         let oracle_nonces = indexes
             .iter()
             .map(|i| {
-                let nonce_key = self
-                    .nonce_xpriv
-                    .derive_priv(&self.secp, &[ChildNumber::from_hardened_idx(*i).unwrap()])
-                    .unwrap();
-                nonce_key.private_key.x_only_public_key(&self.secp).0
+                let nonce_key = self.get_nonce_key(*i);
+                nonce_key.x_only_public_key(&self.secp).0
             })
             .collect();
         let event_descriptor = EventDescriptor::EnumEvent(EnumEventDescriptor { outcomes });
@@ -131,18 +138,14 @@ impl<S: Storage> Oracle<S> {
         }
 
         let nonce_index = data.indexes.first().expect("Already checked length");
-        let nonce_key = self
-            .nonce_xpriv
-            .derive_priv(
-                &self.secp,
-                &[ChildNumber::from_hardened_idx(*nonce_index).unwrap()],
-            )
-            .unwrap()
-            .private_key;
+        let nonce_key = self.get_nonce_key(*nonce_index);
 
         let msg = Message::from_hashed_data::<sha256::Hash>(outcome.as_bytes());
         let sig =
             utils::schnorr_sign_with_nonce(&self.secp, msg.as_ref(), self.signing_key, nonce_key);
+
+        // verify our nonce is the same as the one in the announcement
+        debug_assert!(sig.encode()[..32] == nonce_key.x_only_public_key(&self.secp).0.serialize());
 
         // verify our signature
         if self
