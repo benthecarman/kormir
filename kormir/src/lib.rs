@@ -1,10 +1,11 @@
+pub mod error;
 #[cfg(feature = "nostr")]
 pub mod nostr_events;
 pub mod storage;
 pub mod utils;
 
+use crate::error::Error;
 use crate::storage::Storage;
-use anyhow::anyhow;
 use bitcoin::hashes::sha256;
 use bitcoin::secp256k1::{All, Message, Secp256k1, SecretKey};
 use bitcoin::util::bip32::{ChildNumber, DerivationPath, ExtendedPrivKey};
@@ -40,13 +41,22 @@ impl<S: Storage> Oracle<S> {
         }
     }
 
-    pub fn from_xpriv(storage: S, xpriv: ExtendedPrivKey) -> anyhow::Result<Self> {
+    pub fn from_xpriv(storage: S, xpriv: ExtendedPrivKey) -> Result<Self, Error> {
         let secp = Secp256k1::new();
 
         let signing_key = xpriv
-            .derive_priv(&secp, &DerivationPath::from_str(SIGNING_KEY_PATH)?)?
+            .derive_priv(
+                &secp,
+                &DerivationPath::from_str(SIGNING_KEY_PATH).map_err(|_| Error::Internal)?,
+            )
+            .map_err(|_| Error::Internal)?
             .private_key;
-        let nonce_xpriv = xpriv.derive_priv(&secp, &DerivationPath::from_str(NONCE_KEY_PATH)?)?;
+        let nonce_xpriv = xpriv
+            .derive_priv(
+                &secp,
+                &DerivationPath::from_str(NONCE_KEY_PATH).map_err(|_| Error::Internal)?,
+            )
+            .map_err(|_| Error::Internal)?;
 
         Ok(Self {
             storage,
@@ -83,7 +93,7 @@ impl<S: Storage> Oracle<S> {
         event_id: String,
         outcomes: Vec<String>,
         event_maturity_epoch: u32,
-    ) -> anyhow::Result<(u32, OracleAnnouncement)> {
+    ) -> Result<(u32, OracleAnnouncement), Error> {
         let indexes = self.storage.get_next_nonce_indexes(1).await?;
         let oracle_nonces = indexes
             .iter()
@@ -99,13 +109,11 @@ impl<S: Storage> Oracle<S> {
             event_maturity_epoch,
             event_descriptor,
         };
-        oracle_event
-            .validate()
-            .map_err(|_| anyhow::anyhow!("Created invalid event"))?;
+        oracle_event.validate().map_err(|_| Error::Internal)?;
 
         // create signature
         let mut data = Vec::new();
-        oracle_event.write(&mut data)?;
+        oracle_event.write(&mut data).map_err(|_| Error::Internal)?;
         let msg = Message::from_hashed_data::<sha256::Hash>(&data);
         let announcement_signature = self.secp.sign_schnorr_no_aux_rand(
             &msg,
@@ -117,8 +125,7 @@ impl<S: Storage> Oracle<S> {
             oracle_public_key: self.public_key(),
             announcement_signature,
         };
-        ann.validate(&self.secp)
-            .map_err(|_| anyhow::anyhow!("Created invalid announcement"))?;
+        ann.validate(&self.secp).map_err(|_| Error::Internal)?;
 
         let id = self.storage.save_announcement(ann.clone(), indexes).await?;
 
@@ -129,22 +136,22 @@ impl<S: Storage> Oracle<S> {
         &self,
         id: u32,
         outcome: String,
-    ) -> anyhow::Result<OracleAttestation> {
+    ) -> Result<OracleAttestation, Error> {
         let Some(data) = self.storage.get_event(id).await? else {
-            return Err(anyhow::anyhow!("Event not found"));
+            return Err(Error::NotFound);
         };
         if !data.signatures.is_empty() {
-            return Err(anyhow::anyhow!("Event already signed"));
+            return Err(Error::EventAlreadySigned);
         }
         if data.indexes.len() != 1 {
-            return Err(anyhow::anyhow!("Invalid number of nonces"));
+            return Err(Error::Internal);
         }
         let descriptor = match &data.announcement.oracle_event.event_descriptor {
             EventDescriptor::EnumEvent(desc) => desc,
-            _ => return Err(anyhow::anyhow!("Invalid event descriptor")),
+            _ => return Err(Error::Internal),
         };
         if !descriptor.outcomes.contains(&outcome) {
-            return Err(anyhow::anyhow!("Outcome not found"));
+            return Err(Error::InvalidOutcome);
         }
 
         let nonce_index = data.indexes.first().expect("Already checked length");
@@ -167,7 +174,7 @@ impl<S: Storage> Oracle<S> {
             )
             .is_err()
         {
-            return Err(anyhow!("Produced invalid signature"));
+            return Err(Error::Internal);
         };
 
         self.storage.save_signatures(id, vec![sig]).await?;

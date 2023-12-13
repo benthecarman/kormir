@@ -1,4 +1,4 @@
-use anyhow::anyhow;
+use crate::error::Error;
 use async_trait::async_trait;
 use bitcoin::secp256k1::rand;
 use bitcoin::secp256k1::schnorr::Signature;
@@ -11,7 +11,7 @@ use std::sync::{Arc, RwLock};
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 pub trait Storage {
     /// Get the next `num` nonce indexes
-    async fn get_next_nonce_indexes(&self, num: usize) -> anyhow::Result<Vec<u32>>;
+    async fn get_next_nonce_indexes(&self, num: usize) -> Result<Vec<u32>, Error>;
 
     /// Save the announcement and return the identifier
     /// for the announcement
@@ -19,17 +19,17 @@ pub trait Storage {
         &self,
         announcement: OracleAnnouncement,
         indexes: Vec<u32>,
-    ) -> anyhow::Result<u32>;
+    ) -> Result<u32, Error>;
 
     /// Save signatures for a given event
     async fn save_signatures(
         &self,
         id: u32,
         sigs: Vec<Signature>,
-    ) -> anyhow::Result<OracleEventData>;
+    ) -> Result<OracleEventData, Error>;
 
     /// Get the announcement data for the given id
-    async fn get_event(&self, id: u32) -> anyhow::Result<Option<OracleEventData>>;
+    async fn get_event(&self, id: u32) -> Result<Option<OracleEventData>, Error>;
 }
 
 /// Data saved for an oracle announcement
@@ -64,7 +64,7 @@ impl Default for MemoryStorage {
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 impl Storage for MemoryStorage {
-    async fn get_next_nonce_indexes(&self, num: usize) -> anyhow::Result<Vec<u32>> {
+    async fn get_next_nonce_indexes(&self, num: usize) -> Result<Vec<u32>, Error> {
         let mut current_index = self.current_index.fetch_add(num as u32, Ordering::Relaxed);
         let mut indexes = Vec::with_capacity(num);
         for _ in 0..num {
@@ -78,7 +78,7 @@ impl Storage for MemoryStorage {
         &self,
         announcement: OracleAnnouncement,
         indexes: Vec<u32>,
-    ) -> anyhow::Result<u32> {
+    ) -> Result<u32, Error> {
         // generate random id
         let id = rand::random::<u32>();
         let event = OracleEventData {
@@ -97,14 +97,14 @@ impl Storage for MemoryStorage {
         &self,
         id: u32,
         sigs: Vec<Signature>,
-    ) -> anyhow::Result<OracleEventData> {
+    ) -> Result<OracleEventData, Error> {
         let mut data = self.data.try_write().unwrap();
         let Some(mut event) = data.get(&id).cloned() else {
-            return Err(anyhow!("Not Found"));
+            return Err(Error::NotFound);
         };
 
         if !event.signatures.is_empty() {
-            return Err(anyhow!("Event already signed"));
+            return Err(Error::EventAlreadySigned);
         }
 
         event.signatures = sigs;
@@ -113,7 +113,7 @@ impl Storage for MemoryStorage {
         Ok(event)
     }
 
-    async fn get_event(&self, id: u32) -> anyhow::Result<Option<OracleEventData>> {
+    async fn get_event(&self, id: u32) -> Result<Option<OracleEventData>, Error> {
         let data = self.data.try_read().unwrap();
         Ok(data.get(&id).cloned())
     }

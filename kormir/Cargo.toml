@@ -8,7 +8,6 @@ default = []
 nostr = ["dep:nostr", "dep:base64"]
 
 [dependencies]
-anyhow = "1.0"
 async-trait = "0.1.74"
 bitcoin = "0.29.2"
 dlc = "0.4.0"

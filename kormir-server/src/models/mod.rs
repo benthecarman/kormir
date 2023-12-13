@@ -8,6 +8,7 @@ use diesel::r2d2::{ConnectionManager, Pool};
 use diesel::{Connection, PgConnection, RunQueryDsl};
 use diesel_migrations::{embed_migrations, EmbeddedMigrations};
 use dlc_messages::oracle_msgs::{EventDescriptor, OracleAnnouncement};
+use kormir::error::Error;
 use kormir::storage::{OracleEventData, Storage};
 use lightning::util::ser::Writeable;
 use std::sync::atomic::{AtomicU32, Ordering};
@@ -44,7 +45,7 @@ impl PostgresStorage {
 
 #[async_trait]
 impl Storage for PostgresStorage {
-    async fn get_next_nonce_indexes(&self, num: usize) -> anyhow::Result<Vec<u32>> {
+    async fn get_next_nonce_indexes(&self, num: usize) -> Result<Vec<u32>, Error> {
         let mut current_index = self.current_index.fetch_add(num as u32, Ordering::SeqCst);
         let mut indexes = Vec::with_capacity(num);
         for _ in 0..num {
@@ -58,7 +59,7 @@ impl Storage for PostgresStorage {
         &self,
         announcement: OracleAnnouncement,
         indexes: Vec<u32>,
-    ) -> anyhow::Result<u32> {
+    ) -> Result<u32, Error> {
         let is_enum = match announcement.oracle_event.event_descriptor {
             EventDescriptor::EnumEvent(_) => true,
             EventDescriptor::DigitDecompositionEvent(_) => false,
@@ -70,7 +71,7 @@ impl Storage for PostgresStorage {
             is_enum,
         };
 
-        let mut conn = self.db_pool.get()?;
+        let mut conn = self.db_pool.get().map_err(|_| Error::StorageFailure)?;
         conn.transaction::<_, anyhow::Error, _>(|conn| {
             let event_id = diesel::insert_into(schema::events::table)
                 .values(&new_event)
@@ -95,15 +96,16 @@ impl Storage for PostgresStorage {
 
             Ok(event_id as u32)
         })
+        .map_err(|_| Error::StorageFailure)
     }
 
     async fn save_signatures(
         &self,
         id: u32,
         signatures: Vec<Signature>,
-    ) -> anyhow::Result<OracleEventData> {
+    ) -> Result<OracleEventData, Error> {
         let id = id as i32;
-        let mut conn = self.db_pool.get()?;
+        let mut conn = self.db_pool.get().map_err(|_| Error::StorageFailure)?;
 
         conn.transaction(|conn| {
             let event = Event::get_by_id(conn, id)?.ok_or(anyhow!("Not Found"))?;
@@ -136,13 +138,14 @@ impl Storage for PostgresStorage {
                 signatures,
             })
         })
+        .map_err(|_| Error::StorageFailure)
     }
 
-    async fn get_event(&self, id: u32) -> anyhow::Result<Option<OracleEventData>> {
+    async fn get_event(&self, id: u32) -> Result<Option<OracleEventData>, Error> {
         let id = id as i32;
-        let mut conn = self.db_pool.get()?;
+        let mut conn = self.db_pool.get().map_err(|_| Error::StorageFailure)?;
 
-        conn.transaction(|conn| {
+        conn.transaction::<_, anyhow::Error, _>(|conn| {
             let Some(event) = Event::get_by_id(conn, id)? else {
                 return Ok(None);
             };
@@ -170,5 +173,6 @@ impl Storage for PostgresStorage {
                 signatures,
             }))
         })
+        .map_err(|_| Error::StorageFailure)
     }
 }
