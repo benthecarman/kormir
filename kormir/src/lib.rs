@@ -1,3 +1,5 @@
+#[cfg(feature = "nostr")]
+pub mod nostr_events;
 pub mod storage;
 pub mod utils;
 
@@ -56,6 +58,14 @@ impl<S: Storage> Oracle<S> {
 
     pub fn public_key(&self) -> XOnlyPublicKey {
         self.signing_key.x_only_public_key(&self.secp).0
+    }
+
+    /// Returns the keys for the oracle, used for Nostr.
+    #[cfg(feature = "nostr")]
+    pub fn nostr_keys(&self) -> nostr::Keys {
+        let sec = nostr::key::SecretKey::from_slice(&self.signing_key[..])
+            .expect("just converting types");
+        nostr::Keys::new(sec)
     }
 
     fn get_nonce_key(&self, index: u32) -> SecretKey {
