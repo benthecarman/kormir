@@ -2,6 +2,12 @@
 name = "kormir-wasm"
 version = "0.1.0"
 edition = "2021"
+authors = ["benthecarman <ben@mutinywallet.com>"]
+description = "DLC Oracle WASM SDK"
+license = "MIT"
+documentation = "https://docs.rs/kormir"
+homepage = "https://github.com/benthecarman/kormir"
+repository = "https://github.com/benthecarman/kormir"
 
 [dependencies]
 kormir = { path = "../kormir", version = "0.1.0", features = ["nostr"] }
