@@ -984,7 +984,6 @@ dependencies = [
  "kormir",
  "nostr",
  "nostr-sdk",
- "once_cell",
  "rexie",
  "serde",
  "serde_json",
