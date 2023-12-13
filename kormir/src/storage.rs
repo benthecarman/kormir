@@ -1,14 +1,12 @@
 use crate::error::Error;
-use async_trait::async_trait;
 use bitcoin::secp256k1::rand;
 use bitcoin::secp256k1::schnorr::Signature;
 use dlc_messages::oracle_msgs::OracleAnnouncement;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, RwLock};
 
-#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
-#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 pub trait Storage {
     /// Get the next `num` nonce indexes
     async fn get_next_nonce_indexes(&self, num: usize) -> Result<Vec<u32>, Error>;
@@ -33,11 +31,15 @@ pub trait Storage {
 }
 
 /// Data saved for an oracle announcement
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OracleEventData {
     pub announcement: OracleAnnouncement,
     pub indexes: Vec<u32>,
     pub signatures: Vec<Signature>,
+    #[cfg(feature = "nostr")]
+    pub announcement_event_id: Option<String>,
+    #[cfg(feature = "nostr")]
+    pub attestation_event_id: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -61,8 +63,6 @@ impl Default for MemoryStorage {
     }
 }
 
-#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
-#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 impl Storage for MemoryStorage {
     async fn get_next_nonce_indexes(&self, num: usize) -> Result<Vec<u32>, Error> {
         let mut current_index = self.current_index.fetch_add(num as u32, Ordering::Relaxed);
@@ -85,6 +85,10 @@ impl Storage for MemoryStorage {
             announcement,
             indexes,
             signatures: Vec::new(),
+            #[cfg(feature = "nostr")]
+            announcement_event_id: None,
+            #[cfg(feature = "nostr")]
+            attestation_event_id: None,
         };
 
         let mut data = self.data.try_write().unwrap();

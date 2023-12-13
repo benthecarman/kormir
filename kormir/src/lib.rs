@@ -1,3 +1,5 @@
+#![allow(async_fn_in_trait)]
+
 pub mod error;
 #[cfg(feature = "nostr")]
 pub mod nostr_events;
@@ -11,11 +13,14 @@ use bitcoin::secp256k1::{All, Message, Secp256k1, SecretKey};
 use bitcoin::util::bip32::{ChildNumber, DerivationPath, ExtendedPrivKey};
 use bitcoin::util::key::KeyPair;
 use bitcoin::XOnlyPublicKey;
-use dlc_messages::oracle_msgs::{
+use std::str::FromStr;
+
+pub use bitcoin;
+pub use bitcoin::secp256k1::schnorr::Signature;
+pub use dlc_messages::oracle_msgs::{
     EnumEventDescriptor, EventDescriptor, OracleAnnouncement, OracleAttestation, OracleEvent,
 };
-use lightning::util::ser::Writeable;
-use std::str::FromStr;
+pub use lightning::util::ser::Writeable;
 
 // first key for taproot address
 const SIGNING_KEY_PATH: &str = "m/86'/0'/0'/0/0";
@@ -44,13 +49,7 @@ impl<S: Storage> Oracle<S> {
     pub fn from_xpriv(storage: S, xpriv: ExtendedPrivKey) -> Result<Self, Error> {
         let secp = Secp256k1::new();
 
-        let signing_key = xpriv
-            .derive_priv(
-                &secp,
-                &DerivationPath::from_str(SIGNING_KEY_PATH).map_err(|_| Error::Internal)?,
-            )
-            .map_err(|_| Error::Internal)?
-            .private_key;
+        let signing_key = derive_signing_key(&secp, xpriv)?;
         let nonce_xpriv = xpriv
             .derive_priv(
                 &secp,
@@ -187,6 +186,20 @@ impl<S: Storage> Oracle<S> {
 
         Ok(attestation)
     }
+}
+
+pub fn derive_signing_key(
+    secp: &Secp256k1<All>,
+    xpriv: ExtendedPrivKey,
+) -> Result<SecretKey, Error> {
+    let signing_key = xpriv
+        .derive_priv(
+            secp,
+            &DerivationPath::from_str(SIGNING_KEY_PATH).map_err(|_| Error::Internal)?,
+        )
+        .map_err(|_| Error::Internal)?
+        .private_key;
+    Ok(signing_key)
 }
 
 #[cfg(test)]

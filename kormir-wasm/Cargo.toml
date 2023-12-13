@@ -1,0 +1,21 @@
+[package]
+name = "kormir-wasm"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+kormir = { path = "../kormir", version = "0.1.0", features = ["nostr"] }
+
+anyhow = "1.0.75"
+bip39 = "2.0.0"
+chrono = "0.4.31"
+getrandom = { version = "0.2", features = ["js"] }
+gloo-utils = "0.2.0"
+nostr = "0.25.0"
+nostr-sdk = "0.25.0"
+rexie = "0.5.0"
+serde = { version = "^1.0", features = ["derive"] }
+serde_json = { version = "1.0" }
+wasm-bindgen = "0.2.89"
+wasm-bindgen-futures = "0.4.39"
+once_cell = "1.19.0"

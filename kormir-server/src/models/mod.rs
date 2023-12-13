@@ -1,7 +1,6 @@
 use crate::models::event::{Event, NewEvent};
 use crate::models::event_nonce::{EventNonce, NewEventNonce};
 use anyhow::anyhow;
-use async_trait::async_trait;
 use bitcoin::secp256k1::schnorr::Signature;
 use bitcoin::secp256k1::XOnlyPublicKey;
 use diesel::r2d2::{ConnectionManager, Pool};
@@ -43,7 +42,6 @@ impl PostgresStorage {
     }
 }
 
-#[async_trait]
 impl Storage for PostgresStorage {
     async fn get_next_nonce_indexes(&self, num: usize) -> Result<Vec<u32>, Error> {
         let mut current_index = self.current_index.fetch_add(num as u32, Ordering::SeqCst);
@@ -136,6 +134,8 @@ impl Storage for PostgresStorage {
                 },
                 indexes,
                 signatures,
+                announcement_event_id: None,
+                attestation_event_id: None,
             })
         })
         .map_err(|_| Error::StorageFailure)
@@ -171,6 +171,8 @@ impl Storage for PostgresStorage {
                 },
                 indexes,
                 signatures,
+                announcement_event_id: None,
+                attestation_event_id: None,
             }))
         })
         .map_err(|_| Error::StorageFailure)
