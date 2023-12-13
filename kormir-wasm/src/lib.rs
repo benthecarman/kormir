@@ -1,14 +1,17 @@
 use crate::error::JsError;
 use crate::storage::{IndexedDb, MNEMONIC_KEY};
 use bip39::Mnemonic;
+use gloo_utils::format::JsValueSerdeExt;
 use kormir::bitcoin::hashes::hex::ToHex;
 use kormir::bitcoin::util::bip32::ExtendedPrivKey;
 use kormir::bitcoin::Network;
-use kormir::storage::Storage;
-use kormir::{Oracle, Writeable};
+use kormir::storage::{OracleEventData, Storage};
+use kormir::{EventDescriptor, Oracle, Writeable};
 use nostr::EventId;
 use nostr_sdk::Client;
+use serde::{Deserialize, Serialize};
 use wasm_bindgen::prelude::wasm_bindgen;
+use wasm_bindgen::JsValue;
 
 mod error;
 mod storage;
@@ -111,5 +114,81 @@ impl Kormir {
         self.client.send_event(event).await?;
 
         Ok(attestation.encode().to_hex())
+    }
+
+    pub async fn list_events(&self) -> Result<JsValue /* Vec<EventData> */, JsError> {
+        let data = self.storage.list_events().await?;
+        let events = data.into_iter().map(EventData::from).collect::<Vec<_>>();
+
+        Ok(JsValue::from_serde(&events)?)
+    }
+}
+
+#[wasm_bindgen]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EventData {
+    announcement: String,
+    attestation: Option<String>,
+    pub event_maturity_epoch: u32,
+    outcomes: Vec<String>,
+    event_id: String,
+    announcement_event_id: Option<String>,
+    attestation_event_id: Option<String>,
+}
+
+#[wasm_bindgen]
+impl EventData {
+    #[wasm_bindgen(getter)]
+    pub fn value(&self) -> JsValue {
+        JsValue::from_serde(&serde_json::to_value(self).unwrap()).unwrap()
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn announcement(&self) -> String {
+        self.announcement.clone()
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn attestation(&self) -> Option<String> {
+        self.attestation.clone()
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn outcomes(&self) -> Vec<String> {
+        self.outcomes.clone()
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn event_id(&self) -> String {
+        self.event_id.clone()
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn announcement_event_id(&self) -> Option<String> {
+        self.announcement_event_id.clone()
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn attestation_event_id(&self) -> Option<String> {
+        self.attestation_event_id.clone()
+    }
+}
+
+impl From<OracleEventData> for EventData {
+    fn from(value: OracleEventData) -> Self {
+        let outcomes = match &value.announcement.oracle_event.event_descriptor {
+            EventDescriptor::EnumEvent(e) => e.outcomes.clone(),
+            EventDescriptor::DigitDecompositionEvent(_) => unimplemented!(),
+        };
+
+        EventData {
+            announcement: value.announcement.encode().to_hex(),
+            attestation: None,
+            event_maturity_epoch: value.announcement.oracle_event.event_maturity_epoch,
+            outcomes,
+            event_id: value.announcement.oracle_event.event_id,
+            announcement_event_id: value.announcement_event_id,
+            attestation_event_id: value.attestation_event_id,
+        }
     }
 }

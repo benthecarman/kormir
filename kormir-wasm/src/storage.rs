@@ -1,6 +1,5 @@
 use crate::error::JsError;
 use gloo_utils::format::JsValueSerdeExt;
-use kormir::bitcoin::secp256k1::rand;
 use kormir::error::Error;
 use kormir::storage::{OracleEventData, Storage};
 use kormir::{OracleAnnouncement, Signature};
@@ -14,6 +13,11 @@ const DATABASE_NAME: &str = "kormir";
 const OBJECT_STORE_NAME: &str = "oracle";
 pub const MNEMONIC_KEY: &str = "mnemonic";
 const NONCE_INDEX_KEY: &str = "nonce_index";
+const ORACLE_DATA_PREFIX: &str = "oracle_data/";
+
+fn get_oracle_data_key(id: u32) -> String {
+    format!("{ORACLE_DATA_PREFIX}{id}")
+}
 
 #[derive(Debug, Clone)]
 pub struct IndexedDb {
@@ -97,7 +101,7 @@ impl IndexedDb {
         store
             .put(
                 &JsValue::from_serde(&event)?,
-                Some(&JsValue::from_serde(&id)?),
+                Some(&JsValue::from_serde(&get_oracle_data_key(id))?),
             )
             .await?;
         tx.done().await?;
@@ -115,11 +119,31 @@ impl IndexedDb {
         store
             .put(
                 &JsValue::from_serde(&event)?,
-                Some(&JsValue::from_serde(&id)?),
+                Some(&JsValue::from_serde(&get_oracle_data_key(id))?),
             )
             .await?;
         tx.done().await?;
         Ok(())
+    }
+
+    pub async fn list_events(&self) -> Result<Vec<OracleEventData>, JsError> {
+        let tx = self
+            .rexie
+            .transaction(&[OBJECT_STORE_NAME], TransactionMode::ReadWrite)?;
+        let store = tx.store(OBJECT_STORE_NAME)?;
+        let all = store.get_all(None, None, None, None).await?;
+        tx.done().await?;
+
+        let mut vec: Vec<OracleEventData> = Vec::with_capacity(all.len());
+        for (key, value) in all {
+            let key: String = key.into_serde()?;
+            if key.starts_with(ORACLE_DATA_PREFIX) {
+                let data: OracleEventData = value.into_serde()?;
+                vec.push(data)
+            }
+        }
+
+        Ok(vec)
     }
 }
 
@@ -142,7 +166,7 @@ impl Storage for IndexedDb {
         indexes: Vec<u32>,
     ) -> Result<u32, Error> {
         // generate random id
-        let id = rand::random::<u32>();
+        let id = *indexes.first().unwrap();
         let event = OracleEventData {
             announcement,
             indexes,
@@ -151,7 +175,8 @@ impl Storage for IndexedDb {
             attestation_event_id: None,
         };
 
-        self.save_to_indexed_db(id, event).await?;
+        self.save_to_indexed_db(get_oracle_data_key(id), event)
+            .await?;
 
         Ok(id)
     }
@@ -167,13 +192,15 @@ impl Storage for IndexedDb {
         }
 
         event.signatures = sigs;
-        self.save_to_indexed_db(id, &event).await?;
+        self.save_to_indexed_db(get_oracle_data_key(id), &event)
+            .await?;
 
         Ok(event)
     }
 
     async fn get_event(&self, id: u32) -> Result<Option<OracleEventData>, Error> {
-        let event: Option<OracleEventData> = self.get_from_indexed_db(id).await?;
+        let event: Option<OracleEventData> =
+            self.get_from_indexed_db(get_oracle_data_key(id)).await?;
         Ok(event)
     }
 }
