@@ -1,10 +1,11 @@
+use crate::error::JsError;
 use gloo_utils::format::JsValueSerdeExt;
 use kormir::bitcoin::secp256k1::rand;
 use kormir::error::Error;
 use kormir::storage::{OracleEventData, Storage};
 use kormir::{OracleAnnouncement, Signature};
 use rexie::{ObjectStore, Rexie, TransactionMode};
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
 use wasm_bindgen::JsValue;
@@ -14,29 +15,6 @@ const OBJECT_STORE_NAME: &str = "oracle";
 pub const MNEMONIC_KEY: &str = "mnemonic";
 const NONCE_INDEX_KEY: &str = "nonce_index";
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Event {
-    pub id: i32,
-    announcement_signature: Vec<u8>,
-    oracle_event: Vec<u8>,
-    pub name: String,
-    pub is_enum: bool,
-    created_at: chrono::NaiveDateTime,
-    updated_at: chrono::NaiveDateTime,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct EventNonce {
-    pub id: i32,
-    pub event_id: i32,
-    pub index: i32,
-    nonce: Vec<u8>,
-    pub signature: Option<Vec<u8>>,
-    pub outcome: Option<String>,
-    created_at: chrono::NaiveDateTime,
-    updated_at: chrono::NaiveDateTime,
-}
-
 #[derive(Debug, Clone)]
 pub struct IndexedDb {
     current_index: Arc<AtomicU32>,
@@ -44,33 +22,25 @@ pub struct IndexedDb {
 }
 
 impl IndexedDb {
-    async fn build_indexed_db() -> Rexie {
-        Rexie::builder(DATABASE_NAME)
+    async fn build_indexed_db() -> Result<Rexie, JsError> {
+        Ok(Rexie::builder(DATABASE_NAME)
             .version(1)
             .add_object_store(ObjectStore::new(OBJECT_STORE_NAME))
             .build()
-            .await
-            .unwrap()
+            .await?)
     }
 
-    pub async fn new() -> Result<Self, Error> {
-        let rexie = Self::build_indexed_db().await;
+    pub async fn new() -> Result<Self, JsError> {
+        let rexie = Self::build_indexed_db().await?;
 
-        let tx = rexie
-            .transaction(&[OBJECT_STORE_NAME], TransactionMode::ReadWrite)
-            .map_err(|_| Error::StorageFailure)?;
-        let store = tx
-            .store(OBJECT_STORE_NAME)
-            .map_err(|_| Error::StorageFailure)?;
+        let tx = rexie.transaction(&[OBJECT_STORE_NAME], TransactionMode::ReadOnly)?;
+        let store = tx.store(OBJECT_STORE_NAME)?;
 
         // get current nonce index from the database
-        let js = store
-            .get(&JsValue::from_serde(NONCE_INDEX_KEY).unwrap())
-            .await
-            .map_err(|_| Error::StorageFailure)?;
-        let index: Option<u32> = js.into_serde().map_err(|_| Error::StorageFailure)?;
+        let js = store.get(&JsValue::from_serde(NONCE_INDEX_KEY)?).await?;
+        let index: Option<u32> = js.into_serde()?;
 
-        tx.done().await.map_err(|_| Error::StorageFailure)?;
+        tx.done().await?;
 
         Ok(Self {
             current_index: Arc::new(AtomicU32::new(index.unwrap_or(0))),
@@ -82,93 +52,73 @@ impl IndexedDb {
         &self,
         key: K,
         value: V,
-    ) -> Result<(), Error> {
+    ) -> Result<(), JsError> {
         let tx = self
             .rexie
-            .transaction(&[OBJECT_STORE_NAME], TransactionMode::ReadWrite)
-            .map_err(|_| Error::StorageFailure)?;
-        let store = tx
-            .store(OBJECT_STORE_NAME)
-            .map_err(|_| Error::StorageFailure)?;
+            .transaction(&[OBJECT_STORE_NAME], TransactionMode::ReadWrite)?;
+        let store = tx.store(OBJECT_STORE_NAME)?;
         store
             .put(
-                &JsValue::from_serde(&value).map_err(|_| Error::StorageFailure)?,
-                Some(&JsValue::from_serde(&key).map_err(|_| Error::StorageFailure)?),
+                &JsValue::from_serde(&value)?,
+                Some(&JsValue::from_serde(&key)?),
             )
-            .await
-            .map_err(|_| Error::StorageFailure)?;
-        tx.done().await.map_err(|_| Error::StorageFailure)?;
+            .await?;
+        tx.done().await?;
         Ok(())
     }
 
-    pub async fn get_from_indexed_db<K: Serialize, V>(&self, key: K) -> Result<Option<V>, Error>
+    pub async fn get_from_indexed_db<K: Serialize, V>(&self, key: K) -> Result<Option<V>, JsError>
     where
         V: for<'a> serde::de::Deserialize<'a>,
     {
         let tx = self
             .rexie
-            .transaction(&[OBJECT_STORE_NAME], TransactionMode::ReadWrite)
-            .map_err(|_| Error::StorageFailure)?;
-        let store = tx
-            .store(OBJECT_STORE_NAME)
-            .map_err(|_| Error::StorageFailure)?;
-        let js = store
-            .get(&JsValue::from_serde(&key).map_err(|_| Error::StorageFailure)?)
-            .await
-            .map_err(|_| Error::StorageFailure)?;
-        tx.done().await.map_err(|_| Error::StorageFailure)?;
+            .transaction(&[OBJECT_STORE_NAME], TransactionMode::ReadWrite)?;
+        let store = tx.store(OBJECT_STORE_NAME)?;
+        let js = store.get(&JsValue::from_serde(&key)?).await?;
+        tx.done().await?;
 
-        let value: Option<V> = js.into_serde().map_err(|_| Error::StorageFailure)?;
+        let value: Option<V> = js.into_serde()?;
         Ok(value)
     }
 
-    pub async fn add_announcement_event_id(&self, id: u32, event_id: String) -> Result<(), Error> {
+    pub async fn add_announcement_event_id(
+        &self,
+        id: u32,
+        event_id: String,
+    ) -> Result<(), JsError> {
         let tx = self
             .rexie
-            .transaction(&[OBJECT_STORE_NAME], TransactionMode::ReadWrite)
-            .map_err(|_| Error::StorageFailure)?;
-        let store = tx
-            .store(OBJECT_STORE_NAME)
-            .map_err(|_| Error::StorageFailure)?;
-        let js = store
-            .get(&JsValue::from_serde(&id).map_err(|_| Error::StorageFailure)?)
-            .await
-            .map_err(|_| Error::StorageFailure)?;
-        let mut event: OracleEventData = js.into_serde().map_err(|_| Error::StorageFailure)?;
+            .transaction(&[OBJECT_STORE_NAME], TransactionMode::ReadWrite)?;
+        let store = tx.store(OBJECT_STORE_NAME)?;
+        let js = store.get(&JsValue::from_serde(&id)?).await?;
+        let mut event: OracleEventData = js.into_serde()?;
         event.announcement_event_id = Some(event_id);
         store
             .put(
-                &JsValue::from_serde(&event).map_err(|_| Error::StorageFailure)?,
-                Some(&JsValue::from_serde(&id).map_err(|_| Error::StorageFailure)?),
+                &JsValue::from_serde(&event)?,
+                Some(&JsValue::from_serde(&id)?),
             )
-            .await
-            .map_err(|_| Error::StorageFailure)?;
-        tx.done().await.map_err(|_| Error::StorageFailure)?;
+            .await?;
+        tx.done().await?;
         Ok(())
     }
 
-    pub async fn add_attestation_event_id(&self, id: u32, event_id: String) -> Result<(), Error> {
+    pub async fn add_attestation_event_id(&self, id: u32, event_id: String) -> Result<(), JsError> {
         let tx = self
             .rexie
-            .transaction(&[OBJECT_STORE_NAME], TransactionMode::ReadWrite)
-            .map_err(|_| Error::StorageFailure)?;
-        let store = tx
-            .store(OBJECT_STORE_NAME)
-            .map_err(|_| Error::StorageFailure)?;
-        let js = store
-            .get(&JsValue::from_serde(&id).map_err(|_| Error::StorageFailure)?)
-            .await
-            .map_err(|_| Error::StorageFailure)?;
-        let mut event: OracleEventData = js.into_serde().map_err(|_| Error::StorageFailure)?;
+            .transaction(&[OBJECT_STORE_NAME], TransactionMode::ReadWrite)?;
+        let store = tx.store(OBJECT_STORE_NAME)?;
+        let js = store.get(&JsValue::from_serde(&id)?).await?;
+        let mut event: OracleEventData = js.into_serde()?;
         event.attestation_event_id = Some(event_id);
         store
             .put(
-                &JsValue::from_serde(&event).map_err(|_| Error::StorageFailure)?,
-                Some(&JsValue::from_serde(&id).map_err(|_| Error::StorageFailure)?),
+                &JsValue::from_serde(&event)?,
+                Some(&JsValue::from_serde(&id)?),
             )
-            .await
-            .map_err(|_| Error::StorageFailure)?;
-        tx.done().await.map_err(|_| Error::StorageFailure)?;
+            .await?;
+        tx.done().await?;
         Ok(())
     }
 }
