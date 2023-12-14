@@ -1,21 +1,28 @@
 use kormir::error::Error;
+use thiserror::Error;
 use wasm_bindgen::prelude::wasm_bindgen;
 
 /// Kormir error type
-#[derive(Debug, Clone)]
+#[derive(Error, Debug, Clone)]
 #[wasm_bindgen]
 pub enum JsError {
     /// Attempted to sign an event that was already signed
+    #[error("Attempted to sign an event that was already signed")]
     EventAlreadySigned,
     /// Event data was not found
+    #[error("Event data was not found")]
     NotFound,
     /// The storage failed to read/save the data
+    #[error("Storage failed to read/save the data")]
     StorageFailure,
     /// User gave an invalid outcome
+    #[error("User gave an invalid outcome")]
     InvalidOutcome,
     /// An error that should never happen, if it does it's a bug
+    #[error("Internal Error")]
     Internal,
     /// An error with creating or sending Nostr events
+    #[error("Error sending nostr events")]
     Nostr,
 }
 
