@@ -10,6 +10,7 @@ use dlc_messages::oracle_msgs::{EventDescriptor, OracleAnnouncement};
 use kormir::error::Error;
 use kormir::storage::{OracleEventData, Storage};
 use lightning::util::ser::Writeable;
+use std::collections::HashMap;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
 
@@ -101,7 +102,7 @@ impl Storage for PostgresStorage {
     async fn save_signatures(
         &self,
         id: u32,
-        signatures: Vec<Signature>,
+        signatures: HashMap<String, Signature>,
     ) -> Result<OracleEventData, Error> {
         let id = id as i32;
         let mut conn = self.db_pool.get().map_err(|_| Error::StorageFailure)?;
@@ -117,7 +118,8 @@ impl Storage for PostgresStorage {
             let indexes = event_nonces
                 .into_iter()
                 .zip(signatures.clone())
-                .map(|(mut nonce, sig)| {
+                .map(|(mut nonce, (outcome, sig))| {
+                    nonce.outcome = Some(outcome);
                     nonce.signature = Some(sig.encode());
 
                     // set in db
@@ -161,8 +163,8 @@ impl Storage for PostgresStorage {
 
             let signatures = event_nonces
                 .into_iter()
-                .flat_map(|nonce| nonce.signature())
-                .collect::<Vec<_>>();
+                .flat_map(|nonce| nonce.outcome_and_sig())
+                .collect();
 
             Ok(Some(OracleEventData {
                 announcement: OracleAnnouncement {

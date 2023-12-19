@@ -13,6 +13,7 @@ use bitcoin::secp256k1::{All, Message, Secp256k1, SecretKey};
 use bitcoin::util::bip32::{ChildNumber, DerivationPath, ExtendedPrivKey};
 use bitcoin::util::key::KeyPair;
 use bitcoin::XOnlyPublicKey;
+use std::collections::HashMap;
 use std::str::FromStr;
 
 pub use bitcoin;
@@ -176,7 +177,10 @@ impl<S: Storage> Oracle<S> {
             return Err(Error::Internal);
         };
 
-        self.storage.save_signatures(id, vec![sig]).await?;
+        let mut sigs = HashMap::with_capacity(1);
+        sigs.insert(outcome.clone(), sig);
+
+        self.storage.save_signatures(id, sigs).await?;
 
         let attestation = OracleAttestation {
             oracle_public_key: self.public_key(),

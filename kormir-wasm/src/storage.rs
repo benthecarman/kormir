@@ -5,6 +5,7 @@ use kormir::storage::{OracleEventData, Storage};
 use kormir::{OracleAnnouncement, Signature};
 use rexie::{ObjectStore, Rexie, TransactionMode};
 use serde::Serialize;
+use std::collections::HashMap;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
 use wasm_bindgen::JsValue;
@@ -170,7 +171,7 @@ impl Storage for IndexedDb {
         let event = OracleEventData {
             announcement,
             indexes,
-            signatures: Vec::new(),
+            signatures: Default::default(),
             announcement_event_id: None,
             attestation_event_id: None,
         };
@@ -184,7 +185,7 @@ impl Storage for IndexedDb {
     async fn save_signatures(
         &self,
         id: u32,
-        sigs: Vec<Signature>,
+        sigs: HashMap<String, Signature>,
     ) -> Result<OracleEventData, Error> {
         let mut event = self.get_event(id).await?.ok_or(Error::NotFound)?;
         if !event.signatures.is_empty() {

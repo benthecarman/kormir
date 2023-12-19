@@ -49,6 +49,13 @@ impl EventNonce {
             .map(|sig| Signature::from_slice(sig).expect("invalid signature"))
     }
 
+    pub fn outcome_and_sig(&self) -> Option<(String, Signature)> {
+        match (self.outcome.clone(), self.signature()) {
+            (Some(outcome), Some(sig)) => Some((outcome, sig)),
+            _ => None,
+        }
+    }
+
     pub fn get_next_id(conn: &mut PgConnection) -> anyhow::Result<i32> {
         let num = event_nonces::table
             .select(diesel::dsl::max(event_nonces::id))
