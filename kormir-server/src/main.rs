@@ -1,6 +1,7 @@
 use axum::http::{StatusCode, Uri};
 use axum::routing::get;
 use axum::{Extension, Router};
+use bitcoin::hashes::hex::ToHex;
 use bitcoin::hashes::{sha256, Hash};
 use bitcoin::secp256k1::{Secp256k1, SecretKey};
 use bitcoin::util::bip32::ExtendedPrivKey;
@@ -11,6 +12,7 @@ use diesel_migrations::MigrationHarness;
 use kormir::Oracle;
 use std::str::FromStr;
 
+use crate::models::oracle_metadata::OracleMetadata;
 use crate::models::{PostgresStorage, MIGRATIONS};
 use crate::routes::*;
 
@@ -24,9 +26,9 @@ pub struct State {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    pretty_env_logger::try_init()?;
     // Load .env file
     dotenv::dotenv().ok();
+    pretty_env_logger::try_init()?;
 
     // get values key from env
     let pg_url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
@@ -39,25 +41,44 @@ async fn main() -> anyhow::Result<()> {
     // DB management
     let manager = ConnectionManager::<PgConnection>::new(&pg_url);
     let db_pool = Pool::builder()
-        .max_size(10) // should be a multiple of 100, our database connection limit
+        .max_size(10)
         .test_on_check_out(true)
         .build(manager)
         .expect("Could not build connection pool");
 
     // run migrations
-    let mut connection = db_pool.get()?;
-    connection
-        .run_pending_migrations(MIGRATIONS)
+    let mut conn = db_pool.get()?;
+    conn.run_pending_migrations(MIGRATIONS)
         .expect("migrations could not run");
 
+    let secp = Secp256k1::new();
     let signing_key =
         SecretKey::from_str(&std::env::var("KORMIR_KEY").expect("KORMIR_KEY must be set"))?;
+
+    let pubkey = signing_key.x_only_public_key(&secp).0;
+
+    // check oracle metadata, if it doesn't exist, create it
+    let metadata = OracleMetadata::get(&mut conn)?;
+    match metadata {
+        Some(metadata) => {
+            if metadata.pubkey() != pubkey {
+                anyhow::bail!(
+                    "Database's oracle pubkey ({}) does not match signing key ({})",
+                    metadata.pubkey().to_hex(),
+                    pubkey.to_hex()
+                );
+            }
+        }
+        None => {
+            OracleMetadata::upsert(&mut conn, pubkey)?;
+        }
+    }
+
     // for nonce_xpriv we just hash the key and use that as the seed
     let nonce_xpriv = {
         let bytes = sha256::Hash::hash(&signing_key.secret_bytes()).into_inner();
         ExtendedPrivKey::new_master(Network::Bitcoin, &bytes)?
     };
-    let secp = Secp256k1::new();
     let oracle = Oracle::new(
         PostgresStorage::new(db_pool, signing_key.x_only_public_key(&secp).0)?,
         signing_key,

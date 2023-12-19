@@ -25,9 +25,20 @@ diesel::table! {
     }
 }
 
+diesel::table! {
+    oracle_metadata (pubkey) {
+        pubkey -> Bytea,
+        name -> Text,
+        created_at -> Timestamp,
+        updated_at -> Timestamp,
+        singleton_constant -> Bool,
+    }
+}
+
 diesel::joinable!(event_nonces -> events (event_id));
 
 diesel::allow_tables_to_appear_in_same_query!(
     event_nonces,
     events,
+    oracle_metadata,
 );

@@ -1,3 +1,15 @@
+-- Table of information about the oracle, mostly to prevent multiple keys from being used with the same database
+-- singleton_constant is a dummy column to ensure there is only one row
+CREATE TABLE oracle_metadata
+(
+    pubkey             bytea     NOT NULL UNIQUE PRIMARY KEY,
+    name               TEXT      NOT NULL UNIQUE,
+    created_at         timestamp NOT NULL DEFAULT NOW(),
+    updated_at         timestamp NOT NULL DEFAULT NOW(),
+    singleton_constant BOOLEAN   NOT NULL DEFAULT TRUE, -- make sure there is only one row
+    CONSTRAINT one_row_check UNIQUE (singleton_constant)
+);
+
 -- Primary table containing information about events,
 -- contains a broken up oracle announcement, excluding the oracle pubkey which is in memory
 -- also contains the name of the event, and whether it is an enum or not for faster lookups

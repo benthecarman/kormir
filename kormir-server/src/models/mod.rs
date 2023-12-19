@@ -15,6 +15,7 @@ use std::sync::Arc;
 
 mod event;
 mod event_nonce;
+pub mod oracle_metadata;
 mod schema;
 
 pub const MIGRATIONS: EmbeddedMigrations = embed_migrations!();
