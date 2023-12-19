@@ -42,6 +42,46 @@ impl PostgresStorage {
             current_index: Arc::new(AtomicU32::new(current_index as u32)),
         })
     }
+
+    pub async fn list_events(&self) -> Result<Vec<OracleEventData>, Error> {
+        let mut conn = self.db_pool.get().map_err(|_| Error::StorageFailure)?;
+
+        conn.transaction::<_, anyhow::Error, _>(|conn| {
+            let events = Event::list(conn)?;
+
+            let mut oracle_events = Vec::with_capacity(events.len());
+            for event in events {
+                let mut event_nonces = EventNonce::get_by_event_id(conn, event.id)?;
+                event_nonces.sort_by_key(|nonce| nonce.index);
+
+                let indexes = event_nonces
+                    .iter()
+                    .map(|nonce| nonce.index as u32)
+                    .collect::<Vec<_>>();
+
+                let signatures = event_nonces
+                    .into_iter()
+                    .flat_map(|nonce| nonce.outcome_and_sig())
+                    .collect();
+
+                let data = OracleEventData {
+                    announcement: OracleAnnouncement {
+                        announcement_signature: event.announcement_signature(),
+                        oracle_public_key: self.oracle_public_key,
+                        oracle_event: event.oracle_event(),
+                    },
+                    indexes,
+                    signatures,
+                    announcement_event_id: None,
+                    attestation_event_id: None,
+                };
+                oracle_events.push(data);
+            }
+
+            Ok(oracle_events)
+        })
+        .map_err(|_| Error::StorageFailure)
+    }
 }
 
 impl Storage for PostgresStorage {

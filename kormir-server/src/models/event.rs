@@ -63,4 +63,8 @@ impl Event {
             .first::<Self>(conn)
             .optional()?)
     }
+
+    pub fn list(conn: &mut PgConnection) -> anyhow::Result<Vec<Self>> {
+        Ok(events::table.load::<Self>(conn)?)
+    }
 }

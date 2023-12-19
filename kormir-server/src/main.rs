@@ -94,6 +94,7 @@ async fn main() -> anyhow::Result<()> {
     let server_router = Router::new()
         .route("/health-check", get(health_check))
         .route("/pubkey", get(get_pubkey))
+        .route("/list-events", get(list_events))
         .fallback(fallback)
         .layer(Extension(state));
 
