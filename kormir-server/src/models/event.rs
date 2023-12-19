@@ -31,10 +31,10 @@ pub struct Event {
 
 #[derive(Insertable, AsChangeset)]
 #[diesel(table_name = events)]
-pub struct NewEvent {
+pub struct NewEvent<'a> {
     pub announcement_signature: Vec<u8>,
     pub oracle_event: Vec<u8>,
-    pub name: String,
+    pub name: &'a str,
     pub is_enum: bool,
 }
 

@@ -66,7 +66,7 @@ impl Storage for PostgresStorage {
         let new_event = NewEvent {
             announcement_signature: announcement.announcement_signature.encode(),
             oracle_event: announcement.oracle_event.encode(),
-            name: announcement.oracle_event.event_id.clone(),
+            name: &announcement.oracle_event.event_id,
             is_enum,
         };
 
