@@ -7,7 +7,7 @@ use kormir::bitcoin::util::bip32::ExtendedPrivKey;
 use kormir::bitcoin::Network;
 use kormir::storage::{OracleEventData, Storage};
 use kormir::{EventDescriptor, Oracle, Writeable};
-use nostr::EventId;
+use nostr::{EventId, JsonUtil};
 use nostr_sdk::Client;
 use serde::{Deserialize, Serialize};
 use wasm_bindgen::prelude::wasm_bindgen;
@@ -15,6 +15,7 @@ use wasm_bindgen::JsValue;
 
 mod error;
 mod storage;
+mod utils;
 
 #[derive(Debug, Clone)]
 #[wasm_bindgen]
@@ -28,6 +29,7 @@ pub struct Kormir {
 #[wasm_bindgen]
 impl Kormir {
     pub async fn new(relays: Vec<String>) -> Result<Kormir, JsError> {
+        utils::set_panic_hook();
         let storage = IndexedDb::new().await?;
 
         let mnemonic: Option<Mnemonic> = storage.get_from_indexed_db(MNEMONIC_KEY).await?;
@@ -80,19 +82,32 @@ impl Kormir {
             .create_enum_event(event_id, outcomes, event_maturity_epoch)
             .await?;
 
+        let hex = ann.encode().to_hex();
+
+        log::info!("Created enum event: {hex}");
+
         let event = kormir::nostr_events::create_announcement_event(
             &self.oracle.nostr_keys(),
             &ann,
             &self.relays,
         )?;
 
+        log::debug!("Created nostr event: {}", event.as_json());
+
         self.storage
             .add_announcement_event_id(id, event.id.to_hex())
             .await?;
 
+        log::debug!(
+            "Added announcement event id to storage: {}",
+            event.id.to_hex()
+        );
+
         self.client.send_event(event).await?;
 
-        Ok(ann.encode().to_hex())
+        log::trace!("Sent event to nostr");
+
+        Ok(hex)
     }
 
     pub async fn sign_enum_event(&self, id: u32, outcome: String) -> Result<String, JsError> {

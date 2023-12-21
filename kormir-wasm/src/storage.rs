@@ -96,15 +96,11 @@ impl IndexedDb {
             .rexie
             .transaction(&[OBJECT_STORE_NAME], TransactionMode::ReadWrite)?;
         let store = tx.store(OBJECT_STORE_NAME)?;
-        let js = store.get(&JsValue::from_serde(&id)?).await?;
+        let key = JsValue::from_serde(&get_oracle_data_key(id))?;
+        let js = store.get(&key).await?;
         let mut event: OracleEventData = js.into_serde()?;
         event.announcement_event_id = Some(event_id);
-        store
-            .put(
-                &JsValue::from_serde(&event)?,
-                Some(&JsValue::from_serde(&get_oracle_data_key(id))?),
-            )
-            .await?;
+        store.put(&JsValue::from_serde(&event)?, Some(&key)).await?;
         tx.done().await?;
         Ok(())
     }
@@ -114,15 +110,11 @@ impl IndexedDb {
             .rexie
             .transaction(&[OBJECT_STORE_NAME], TransactionMode::ReadWrite)?;
         let store = tx.store(OBJECT_STORE_NAME)?;
-        let js = store.get(&JsValue::from_serde(&id)?).await?;
+        let key = JsValue::from_serde(&get_oracle_data_key(id))?;
+        let js = store.get(&key).await?;
         let mut event: OracleEventData = js.into_serde()?;
         event.attestation_event_id = Some(event_id);
-        store
-            .put(
-                &JsValue::from_serde(&event)?,
-                Some(&JsValue::from_serde(&get_oracle_data_key(id))?),
-            )
-            .await?;
+        store.put(&JsValue::from_serde(&event)?, Some(&key)).await?;
         tx.done().await?;
         Ok(())
     }
