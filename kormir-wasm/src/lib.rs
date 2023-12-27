@@ -6,7 +6,7 @@ use kormir::bitcoin::hashes::hex::ToHex;
 use kormir::bitcoin::util::bip32::ExtendedPrivKey;
 use kormir::bitcoin::Network;
 use kormir::storage::{OracleEventData, Storage};
-use kormir::{EventDescriptor, Oracle, Writeable};
+use kormir::{EventDescriptor, Oracle, OracleAttestation, Writeable};
 use nostr::{EventId, JsonUtil};
 use nostr_sdk::Client;
 use serde::{Deserialize, Serialize};
@@ -196,9 +196,22 @@ impl From<OracleEventData> for EventData {
             EventDescriptor::DigitDecompositionEvent(_) => unimplemented!(),
         };
 
+        let attestation = match value.signatures.len() {
+            0 => None,
+            _ => {
+                // todo proper sorting for non-enum events
+                let attestation = OracleAttestation {
+                    oracle_public_key: value.announcement.oracle_public_key,
+                    signatures: value.signatures.values().cloned().collect(),
+                    outcomes: value.signatures.keys().cloned().collect(),
+                };
+                Some(attestation.encode().to_hex())
+            }
+        };
+
         EventData {
             announcement: value.announcement.encode().to_hex(),
-            attestation: None,
+            attestation,
             event_maturity_epoch: value.announcement.oracle_event.event_maturity_epoch,
             outcomes,
             event_id: value.announcement.oracle_event.event_id,

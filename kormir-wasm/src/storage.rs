@@ -78,7 +78,7 @@ impl IndexedDb {
     {
         let tx = self
             .rexie
-            .transaction(&[OBJECT_STORE_NAME], TransactionMode::ReadWrite)?;
+            .transaction(&[OBJECT_STORE_NAME], TransactionMode::ReadOnly)?;
         let store = tx.store(OBJECT_STORE_NAME)?;
         let js = store.get(&JsValue::from_serde(&key)?).await?;
         tx.done().await?;
@@ -122,7 +122,7 @@ impl IndexedDb {
     pub async fn list_events(&self) -> Result<Vec<OracleEventData>, JsError> {
         let tx = self
             .rexie
-            .transaction(&[OBJECT_STORE_NAME], TransactionMode::ReadWrite)?;
+            .transaction(&[OBJECT_STORE_NAME], TransactionMode::ReadOnly)?;
         let store = tx.store(OBJECT_STORE_NAME)?;
         let all = store.get_all(None, None, None, None).await?;
         tx.done().await?;
@@ -142,7 +142,7 @@ impl IndexedDb {
 
 impl Storage for IndexedDb {
     async fn get_next_nonce_indexes(&self, num: usize) -> Result<Vec<u32>, Error> {
-        let mut current_index = self.current_index.fetch_add(num as u32, Ordering::Relaxed);
+        let mut current_index = self.current_index.fetch_add(num as u32, Ordering::SeqCst);
         let mut indexes = Vec::with_capacity(num);
         for _ in 0..num {
             indexes.push(current_index);
