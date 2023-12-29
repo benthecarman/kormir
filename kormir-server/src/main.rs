@@ -1,5 +1,5 @@
 use axum::http::{StatusCode, Uri};
-use axum::routing::get;
+use axum::routing::{get, post};
 use axum::{Extension, Router};
 use bitcoin::hashes::hex::ToHex;
 use bitcoin::hashes::{sha256, Hash};
@@ -10,6 +10,7 @@ use diesel::r2d2::{ConnectionManager, Pool};
 use diesel::PgConnection;
 use diesel_migrations::MigrationHarness;
 use kormir::Oracle;
+use nostr_sdk::Client;
 use std::str::FromStr;
 
 use crate::models::oracle_metadata::OracleMetadata;
@@ -22,6 +23,7 @@ mod routes;
 #[derive(Clone)]
 pub struct State {
     oracle: Oracle<PostgresStorage>,
+    client: Client,
 }
 
 #[tokio::main]
@@ -85,7 +87,19 @@ async fn main() -> anyhow::Result<()> {
         nonce_xpriv,
     );
 
-    let state = State { oracle };
+    let relays = std::env::var("KORMIR_RELAYS")
+        .unwrap_or("wss://nostr.mutinywallet.com".to_string())
+        .split(' ')
+        .map(|s| s.to_string())
+        .collect::<Vec<_>>();
+
+    let client = Client::new(&oracle.nostr_keys());
+    for relay in relays.iter() {
+        client.add_relay(relay.as_str(), None).await?;
+    }
+    client.connect().await;
+
+    let state = State { oracle, client };
 
     let addr: std::net::SocketAddr = format!("0.0.0.0:{port}")
         .parse()
@@ -95,6 +109,8 @@ async fn main() -> anyhow::Result<()> {
         .route("/health-check", get(health_check))
         .route("/pubkey", get(get_pubkey))
         .route("/list-events", get(list_events))
+        .route("/create-enum", post(create_enum_event))
+        .route("/sign-enum", post(sign_enum_event))
         .fallback(fallback)
         .layer(Extension(state));
 

@@ -20,6 +20,8 @@ diesel::table! {
         oracle_event -> Bytea,
         name -> Text,
         is_enum -> Bool,
+        announcement_event_id -> Nullable<Bytea>,
+        attestation_event_id -> Nullable<Bytea>,
         created_at -> Timestamp,
         updated_at -> Timestamp,
     }

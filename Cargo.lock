@@ -977,6 +977,8 @@ dependencies = [
  "kormir",
  "lightning",
  "log",
+ "nostr",
+ "nostr-sdk",
  "pretty_env_logger",
  "serde",
  "serde_json",

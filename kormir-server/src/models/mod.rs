@@ -3,6 +3,7 @@ use crate::models::event_nonce::{EventNonce, NewEventNonce};
 use anyhow::anyhow;
 use bitcoin::secp256k1::schnorr::Signature;
 use bitcoin::secp256k1::XOnlyPublicKey;
+use diesel::prelude::*;
 use diesel::r2d2::{ConnectionManager, Pool};
 use diesel::{Connection, PgConnection, RunQueryDsl};
 use diesel_migrations::{embed_migrations, EmbeddedMigrations};
@@ -10,6 +11,7 @@ use dlc_messages::oracle_msgs::{EventDescriptor, OracleAnnouncement};
 use kormir::error::Error;
 use kormir::storage::{OracleEventData, Storage};
 use lightning::util::ser::Writeable;
+use nostr::EventId;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
@@ -81,6 +83,38 @@ impl PostgresStorage {
             Ok(oracle_events)
         })
         .map_err(|_| Error::StorageFailure)
+    }
+
+    pub async fn add_announcement_event_id(&self, id: u32, event_id: EventId) -> Result<(), Error> {
+        let mut conn = self.db_pool.get().map_err(|_| Error::StorageFailure)?;
+        let id = id as i32;
+
+        diesel::update(schema::events::table)
+            .filter(schema::events::id.eq(id))
+            .set(schema::events::announcement_event_id.eq(Some(event_id.as_bytes().to_vec())))
+            .execute(&mut conn)
+            .map_err(|e| {
+                log::error!("Failed to add announcement event id: {}", e);
+                Error::StorageFailure
+            })?;
+
+        Ok(())
+    }
+
+    pub async fn add_attestation_event_id(&self, id: u32, event_id: EventId) -> Result<(), Error> {
+        let mut conn = self.db_pool.get().map_err(|_| Error::StorageFailure)?;
+        let id = id as i32;
+
+        diesel::update(schema::events::table)
+            .filter(schema::events::id.eq(id))
+            .set(schema::events::attestation_event_id.eq(Some(event_id.as_bytes().to_vec())))
+            .execute(&mut conn)
+            .map_err(|e| {
+                log::error!("Failed to add announcement event id: {}", e);
+                Error::StorageFailure
+            })?;
+
+        Ok(())
     }
 }
 
@@ -177,8 +211,8 @@ impl Storage for PostgresStorage {
                 },
                 indexes,
                 signatures,
-                announcement_event_id: None,
-                attestation_event_id: None,
+                announcement_event_id: event.announcement_event_id().map(|id| id.to_hex()),
+                attestation_event_id: event.attestation_event_id().map(|id| id.to_hex()),
             })
         })
         .map_err(|_| Error::StorageFailure)
@@ -214,8 +248,8 @@ impl Storage for PostgresStorage {
                 },
                 indexes,
                 signatures,
-                announcement_event_id: None,
-                attestation_event_id: None,
+                announcement_event_id: event.announcement_event_id().map(|id| id.to_hex()),
+                attestation_event_id: event.attestation_event_id().map(|id| id.to_hex()),
             }))
         })
         .map_err(|_| Error::StorageFailure)

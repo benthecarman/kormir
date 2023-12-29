@@ -2,6 +2,7 @@ use bitcoin::secp256k1::schnorr::Signature;
 use diesel::prelude::*;
 use dlc_messages::oracle_msgs::OracleEvent;
 use lightning::util::ser::Readable;
+use nostr::EventId;
 use serde::{Deserialize, Serialize};
 
 use super::schema::events;
@@ -25,6 +26,8 @@ pub struct Event {
     oracle_event: Vec<u8>,
     pub name: String,
     pub is_enum: bool,
+    pub announcement_event_id: Option<Vec<u8>>,
+    pub attestation_event_id: Option<Vec<u8>>,
     created_at: chrono::NaiveDateTime,
     updated_at: chrono::NaiveDateTime,
 }
@@ -41,6 +44,18 @@ pub struct NewEvent<'a> {
 impl Event {
     pub fn announcement_signature(&self) -> Signature {
         Signature::from_slice(&self.announcement_signature).expect("invalid signature")
+    }
+
+    pub fn announcement_event_id(&self) -> Option<EventId> {
+        self.announcement_event_id
+            .as_ref()
+            .map(|id| EventId::from_slice(id).expect("invalid even tid"))
+    }
+
+    pub fn attestation_event_id(&self) -> Option<EventId> {
+        self.attestation_event_id
+            .as_ref()
+            .map(|id| EventId::from_slice(id).expect("invalid event id"))
     }
 
     pub fn oracle_event(&self) -> OracleEvent {

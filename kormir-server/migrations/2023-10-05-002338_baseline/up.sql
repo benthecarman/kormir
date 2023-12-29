@@ -20,6 +20,8 @@ CREATE TABLE events
     oracle_event           bytea     NOT NULL,
     name                   TEXT      NOT NULL UNIQUE,
     is_enum                BOOLEAN   NOT NULL,
+    announcement_event_id  bytea UNIQUE,
+    attestation_event_id   bytea UNIQUE,
     created_at             timestamp NOT NULL DEFAULT NOW(),
     updated_at             timestamp NOT NULL DEFAULT NOW()
 );
