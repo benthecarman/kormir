@@ -8,11 +8,11 @@ pub mod utils;
 
 use crate::error::Error;
 use crate::storage::Storage;
-use bitcoin::hashes::sha256;
+use bitcoin::hashes::{sha256, Hash};
 use bitcoin::secp256k1::{All, Message, Secp256k1, SecretKey};
 use bitcoin::util::bip32::{ChildNumber, DerivationPath, ExtendedPrivKey};
 use bitcoin::util::key::KeyPair;
-use bitcoin::XOnlyPublicKey;
+use bitcoin::{Network, XOnlyPublicKey};
 use std::collections::HashMap;
 use std::str::FromStr;
 
@@ -51,11 +51,14 @@ impl<S: Storage> Oracle<S> {
         let secp = Secp256k1::new();
 
         let signing_key = derive_signing_key(&secp, xpriv)?;
-        let nonce_xpriv = xpriv
-            .derive_priv(
-                &secp,
-                &DerivationPath::from_str(NONCE_KEY_PATH).map_err(|_| Error::Internal)?,
-            )
+        Self::from_signing_key(storage, signing_key)
+    }
+
+    pub fn from_signing_key(storage: S, signing_key: SecretKey) -> Result<Self, Error> {
+        let secp = Secp256k1::new();
+
+        let xpriv_bytes = sha256::Hash::hash(&signing_key.secret_bytes());
+        let nonce_xpriv = ExtendedPrivKey::new_master(Network::Bitcoin, &xpriv_bytes)
             .map_err(|_| Error::Internal)?;
 
         Ok(Self {

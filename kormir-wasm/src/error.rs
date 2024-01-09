@@ -57,6 +57,12 @@ impl From<rexie::Error> for JsError {
     }
 }
 
+impl From<kormir::bitcoin::secp256k1::Error> for JsError {
+    fn from(_: kormir::bitcoin::secp256k1::Error) -> Self {
+        JsError::StorageFailure
+    }
+}
+
 impl From<serde_json::Error> for JsError {
     fn from(_: serde_json::Error) -> Self {
         JsError::StorageFailure

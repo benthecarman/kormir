@@ -12,7 +12,7 @@ use wasm_bindgen::JsValue;
 
 const DATABASE_NAME: &str = "kormir";
 const OBJECT_STORE_NAME: &str = "oracle";
-pub const MNEMONIC_KEY: &str = "mnemonic";
+pub const NSEC_KEY: &str = "nsec";
 const NONCE_INDEX_KEY: &str = "nonce_index";
 const ORACLE_DATA_PREFIX: &str = "oracle_data/";
 
@@ -23,7 +23,7 @@ fn get_oracle_data_key(id: u32) -> String {
 #[derive(Debug, Clone)]
 pub struct IndexedDb {
     current_index: Arc<AtomicU32>,
-    rexie: Rexie,
+    pub(crate) rexie: Rexie,
 }
 
 impl IndexedDb {
@@ -137,6 +137,17 @@ impl IndexedDb {
         }
 
         Ok(vec)
+    }
+
+    pub async fn clear() -> Result<(), JsError> {
+        let rexie = Self::build_indexed_db().await?;
+        let tx = rexie.transaction(&[OBJECT_STORE_NAME], TransactionMode::ReadWrite)?;
+        let store = tx.store(OBJECT_STORE_NAME)?;
+
+        store.clear().await?;
+        tx.done().await?;
+
+        Ok(())
     }
 }
 

@@ -1,15 +1,14 @@
 use crate::error::JsError;
-use crate::storage::{IndexedDb, MNEMONIC_KEY};
-use bip39::Mnemonic;
+use crate::storage::{IndexedDb, NSEC_KEY};
 use gloo_utils::format::JsValueSerdeExt;
 use kormir::bitcoin::hashes::hex::ToHex;
-use kormir::bitcoin::util::bip32::ExtendedPrivKey;
-use kormir::bitcoin::Network;
+use kormir::bitcoin::secp256k1::SecretKey;
 use kormir::storage::{OracleEventData, Storage};
 use kormir::{EventDescriptor, Oracle, OracleAttestation, Writeable};
 use nostr::{EventId, JsonUtil};
 use nostr_sdk::Client;
 use serde::{Deserialize, Serialize};
+use std::str::FromStr;
 use wasm_bindgen::prelude::wasm_bindgen;
 use wasm_bindgen::JsValue;
 
@@ -32,20 +31,22 @@ impl Kormir {
         utils::set_panic_hook();
         let storage = IndexedDb::new().await?;
 
-        let mnemonic: Option<Mnemonic> = storage.get_from_indexed_db(MNEMONIC_KEY).await?;
-        let xpriv = match mnemonic {
-            Some(mnemonic) => ExtendedPrivKey::new_master(Network::Bitcoin, &mnemonic.to_seed(""))?,
+        let nsec: Option<String> = storage.get_from_indexed_db(NSEC_KEY).await?;
+        let nsec: SecretKey = match nsec {
+            Some(str) => SecretKey::from_str(&str)?,
             None => {
-                let mut entropy: [u8; 16] = [0; 16];
+                let mut entropy: [u8; 32] = [0; 32];
                 getrandom::getrandom(&mut entropy).unwrap();
 
-                let mnemonic = Mnemonic::from_entropy(&entropy)?;
-                storage.save_to_indexed_db(MNEMONIC_KEY, &mnemonic).await?;
-                ExtendedPrivKey::new_master(Network::Bitcoin, &mnemonic.to_seed(""))?
+                let nsec = SecretKey::from_slice(&entropy)?;
+                storage
+                    .save_to_indexed_db(NSEC_KEY, nsec.secret_bytes().to_hex())
+                    .await?;
+                nsec
             }
         };
 
-        let oracle = Oracle::from_xpriv(storage.clone(), xpriv)?;
+        let oracle = Oracle::from_signing_key(storage.clone(), nsec)?;
 
         let client = Client::new(&oracle.nostr_keys());
 
@@ -65,6 +66,18 @@ impl Kormir {
             client,
             relays,
         })
+    }
+
+    pub async fn restore(str: String) -> Result<(), JsError> {
+        let nsec = SecretKey::from_str(&str)?;
+        IndexedDb::clear().await?;
+        let storage = IndexedDb::new().await?;
+
+        storage
+            .save_to_indexed_db(NSEC_KEY, nsec.secret_bytes().to_hex())
+            .await?;
+
+        Ok(())
     }
 
     pub fn get_public_key(&self) -> String {
