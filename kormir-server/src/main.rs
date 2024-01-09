@@ -2,10 +2,7 @@ use axum::http::{StatusCode, Uri};
 use axum::routing::{get, post};
 use axum::{Extension, Router};
 use bitcoin::hashes::hex::ToHex;
-use bitcoin::hashes::{sha256, Hash};
 use bitcoin::secp256k1::{Secp256k1, SecretKey};
-use bitcoin::util::bip32::ExtendedPrivKey;
-use bitcoin::Network;
 use diesel::r2d2::{ConnectionManager, Pool};
 use diesel::PgConnection;
 use diesel_migrations::MigrationHarness;
@@ -76,16 +73,10 @@ async fn main() -> anyhow::Result<()> {
         }
     }
 
-    // for nonce_xpriv we just hash the key and use that as the seed
-    let nonce_xpriv = {
-        let bytes = sha256::Hash::hash(&signing_key.secret_bytes()).into_inner();
-        ExtendedPrivKey::new_master(Network::Bitcoin, &bytes)?
-    };
-    let oracle = Oracle::new(
+    let oracle = Oracle::from_signing_key(
         PostgresStorage::new(db_pool, signing_key.x_only_public_key(&secp).0)?,
         signing_key,
-        nonce_xpriv,
-    );
+    )?;
 
     let relays = std::env::var("KORMIR_RELAYS")
         .unwrap_or("wss://nostr.mutinywallet.com".to_string())
