@@ -16,7 +16,7 @@ pub fn create_announcement_event(
     EventBuilder::new(
         Kind::Custom(88),
         base64::encode(content),
-        &[Tag::Relays(relays)],
+        [Tag::Relays(relays)],
     )
     .to_event(keys)
 }
@@ -31,7 +31,11 @@ pub fn create_attestation_event(
     EventBuilder::new(
         Kind::Custom(89),
         base64::encode(content),
-        &[Tag::Event(event_id, None, None)],
+        [Tag::Event {
+            event_id,
+            relay_url: None,
+            marker: None,
+        }],
     )
     .to_event(keys)
 }

@@ -94,9 +94,7 @@ async fn main() -> anyhow::Result<()> {
         .collect::<Vec<_>>();
 
     let client = Client::new(&oracle.nostr_keys());
-    for relay in relays.iter() {
-        client.add_relay(relay.as_str(), None).await?;
-    }
+    client.add_relays(relays).await?;
     client.connect().await;
 
     let state = State { oracle, client };

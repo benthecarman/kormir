@@ -51,11 +51,7 @@ impl Kormir {
         let client = Client::new(&oracle.nostr_keys());
 
         for relay in relays.iter() {
-            #[cfg(target_arch = "wasm32")]
             client.add_relay(relay.as_str()).await?;
-
-            #[cfg(not(target_arch = "wasm32"))]
-            client.add_relay(relay.as_str(), None).await?;
         }
 
         client.connect().await;

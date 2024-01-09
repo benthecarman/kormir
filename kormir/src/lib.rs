@@ -26,8 +26,6 @@ pub use lightning::util::ser::Writeable;
 // first key for taproot address
 const SIGNING_KEY_PATH: &str = "m/86'/0'/0'/0/0";
 
-const NONCE_KEY_PATH: &str = "m/585'/0'/0'";
-
 #[derive(Debug, Clone)]
 pub struct Oracle<S: Storage> {
     pub storage: S,
