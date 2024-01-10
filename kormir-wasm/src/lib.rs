@@ -49,11 +49,7 @@ impl Kormir {
         let oracle = Oracle::from_signing_key(storage.clone(), nsec)?;
 
         let client = Client::new(&oracle.nostr_keys());
-
-        for relay in relays.iter() {
-            client.add_relay(relay.as_str()).await?;
-        }
-
+        client.add_relays(relays.iter().map(|r| r.as_str())).await?;
         client.connect().await;
 
         Ok(Kormir {
