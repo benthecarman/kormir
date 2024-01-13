@@ -21,7 +21,8 @@ pub use bitcoin::secp256k1::schnorr::Signature;
 pub use dlc_messages::oracle_msgs::{
     EnumEventDescriptor, EventDescriptor, OracleAnnouncement, OracleAttestation, OracleEvent,
 };
-pub use lightning::util::ser::Writeable;
+pub use lightning;
+pub use lightning::util::ser::{Readable, Writeable};
 
 // first key for taproot address
 const SIGNING_KEY_PATH: &str = "m/86'/0'/0'/0/0";

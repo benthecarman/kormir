@@ -1,18 +1,22 @@
-use crate::error::JsError;
-use crate::storage::{IndexedDb, NSEC_KEY};
+use std::str::FromStr;
+
 use gloo_utils::format::JsValueSerdeExt;
-use kormir::bitcoin::hashes::hex::ToHex;
-use kormir::bitcoin::secp256k1::SecretKey;
-use kormir::storage::{OracleEventData, Storage};
-use kormir::{EventDescriptor, Oracle, OracleAttestation, Writeable};
 use nostr::{EventId, JsonUtil};
 use nostr_sdk::Client;
-use serde::{Deserialize, Serialize};
-use std::str::FromStr;
 use wasm_bindgen::prelude::wasm_bindgen;
 use wasm_bindgen::JsValue;
 
+use kormir::bitcoin::hashes::hex::ToHex;
+use kormir::bitcoin::secp256k1::SecretKey;
+use kormir::storage::Storage;
+use kormir::{Oracle, OracleAnnouncement, OracleAttestation, Readable, Writeable};
+
+use crate::error::JsError;
+use crate::models::{Announcement, Attestation, EventData};
+use crate::storage::{IndexedDb, NSEC_KEY};
+
 mod error;
+mod models;
 mod storage;
 mod utils;
 
@@ -142,86 +146,18 @@ impl Kormir {
 
         Ok(JsValue::from_serde(&events)?)
     }
-}
 
-#[wasm_bindgen]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct EventData {
-    announcement: String,
-    attestation: Option<String>,
-    pub event_maturity_epoch: u32,
-    outcomes: Vec<String>,
-    event_id: String,
-    announcement_event_id: Option<String>,
-    attestation_event_id: Option<String>,
-}
-
-#[wasm_bindgen]
-impl EventData {
-    #[wasm_bindgen(getter)]
-    pub fn value(&self) -> JsValue {
-        JsValue::from_serde(&serde_json::to_value(self).unwrap()).unwrap()
+    pub async fn decode_announcement(str: String) -> Result<Announcement, JsError> {
+        let bytes = hex::decode(str)?;
+        let mut cursor = std::io::Cursor::new(&bytes);
+        let ann = OracleAnnouncement::read(&mut cursor)?;
+        Ok(ann.into())
     }
 
-    #[wasm_bindgen(getter)]
-    pub fn announcement(&self) -> String {
-        self.announcement.clone()
-    }
-
-    #[wasm_bindgen(getter)]
-    pub fn attestation(&self) -> Option<String> {
-        self.attestation.clone()
-    }
-
-    #[wasm_bindgen(getter)]
-    pub fn outcomes(&self) -> Vec<String> {
-        self.outcomes.clone()
-    }
-
-    #[wasm_bindgen(getter)]
-    pub fn event_id(&self) -> String {
-        self.event_id.clone()
-    }
-
-    #[wasm_bindgen(getter)]
-    pub fn announcement_event_id(&self) -> Option<String> {
-        self.announcement_event_id.clone()
-    }
-
-    #[wasm_bindgen(getter)]
-    pub fn attestation_event_id(&self) -> Option<String> {
-        self.attestation_event_id.clone()
-    }
-}
-
-impl From<OracleEventData> for EventData {
-    fn from(value: OracleEventData) -> Self {
-        let outcomes = match &value.announcement.oracle_event.event_descriptor {
-            EventDescriptor::EnumEvent(e) => e.outcomes.clone(),
-            EventDescriptor::DigitDecompositionEvent(_) => unimplemented!(),
-        };
-
-        let attestation = match value.signatures.len() {
-            0 => None,
-            _ => {
-                // todo proper sorting for non-enum events
-                let attestation = OracleAttestation {
-                    oracle_public_key: value.announcement.oracle_public_key,
-                    signatures: value.signatures.values().cloned().collect(),
-                    outcomes: value.signatures.keys().cloned().collect(),
-                };
-                Some(attestation.encode().to_hex())
-            }
-        };
-
-        EventData {
-            announcement: value.announcement.encode().to_hex(),
-            attestation,
-            event_maturity_epoch: value.announcement.oracle_event.event_maturity_epoch,
-            outcomes,
-            event_id: value.announcement.oracle_event.event_id,
-            announcement_event_id: value.announcement_event_id,
-            attestation_event_id: value.attestation_event_id,
-        }
+    pub async fn decode_attestation(str: String) -> Result<Attestation, JsError> {
+        let bytes = hex::decode(str)?;
+        let mut cursor = std::io::Cursor::new(&bytes);
+        let attestation = OracleAttestation::read(&mut cursor)?;
+        Ok(attestation.into())
     }
 }

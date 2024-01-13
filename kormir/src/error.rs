@@ -3,6 +3,8 @@ use std::fmt::{Display, Formatter};
 /// Kormir error type
 #[derive(Debug, Clone)]
 pub enum Error {
+    /// Invalid argument given
+    InvalidArgument,
     /// Attempted to sign an event that was already signed
     EventAlreadySigned,
     /// Event data was not found
@@ -18,6 +20,7 @@ pub enum Error {
 impl Display for Error {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
+            Error::InvalidArgument => write!(f, "Invalid argument given"),
             Error::EventAlreadySigned => write!(f, "Event already signed"),
             Error::NotFound => write!(f, "Event data not found"),
             Error::StorageFailure => write!(f, "Storage failure"),

@@ -6,6 +6,9 @@ use wasm_bindgen::prelude::wasm_bindgen;
 #[derive(Error, Debug, Clone)]
 #[wasm_bindgen]
 pub enum JsError {
+    /// Invalid argument given
+    #[error("Invalid argument given")]
+    InvalidArgument,
     /// Attempted to sign an event that was already signed
     #[error("Attempted to sign an event that was already signed")]
     EventAlreadySigned,
@@ -29,6 +32,7 @@ pub enum JsError {
 impl From<Error> for JsError {
     fn from(value: Error) -> Self {
         match value {
+            Error::InvalidArgument => Self::InvalidArgument,
             Error::EventAlreadySigned => Self::EventAlreadySigned,
             Error::NotFound => Self::NotFound,
             Error::StorageFailure => Self::StorageFailure,
@@ -41,6 +45,7 @@ impl From<Error> for JsError {
 impl From<JsError> for Error {
     fn from(value: JsError) -> Self {
         match value {
+            JsError::InvalidArgument => Self::InvalidArgument,
             JsError::EventAlreadySigned => Self::EventAlreadySigned,
             JsError::NotFound => Self::NotFound,
             JsError::StorageFailure => Self::StorageFailure,
@@ -57,9 +62,21 @@ impl From<rexie::Error> for JsError {
     }
 }
 
+impl From<hex::FromHexError> for JsError {
+    fn from(_: hex::FromHexError) -> Self {
+        JsError::InvalidArgument
+    }
+}
+
 impl From<kormir::bitcoin::secp256k1::Error> for JsError {
     fn from(_: kormir::bitcoin::secp256k1::Error) -> Self {
         JsError::StorageFailure
+    }
+}
+
+impl From<kormir::lightning::ln::msgs::DecodeError> for JsError {
+    fn from(_: kormir::lightning::ln::msgs::DecodeError) -> Self {
+        JsError::InvalidArgument
     }
 }
 
