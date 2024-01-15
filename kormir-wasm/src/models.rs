@@ -119,11 +119,12 @@ impl From<OracleAttestation> for Attestation {
 #[wasm_bindgen]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EventData {
+    id: u32,
     announcement: String,
     attestation: Option<String>,
     pub event_maturity_epoch: u32,
     outcomes: Vec<String>,
-    event_id: String,
+    event_name: String,
     announcement_event_id: Option<String>,
     attestation_event_id: Option<String>,
 }
@@ -151,8 +152,8 @@ impl EventData {
     }
 
     #[wasm_bindgen(getter)]
-    pub fn event_id(&self) -> String {
-        self.event_id.clone()
+    pub fn event_name(&self) -> String {
+        self.event_name.clone()
     }
 
     #[wasm_bindgen(getter)]
@@ -166,8 +167,8 @@ impl EventData {
     }
 }
 
-impl From<OracleEventData> for EventData {
-    fn from(value: OracleEventData) -> Self {
+impl From<(u32, OracleEventData)> for EventData {
+    fn from((id, value): (u32, OracleEventData)) -> Self {
         let outcomes = match &value.announcement.oracle_event.event_descriptor {
             EventDescriptor::EnumEvent(e) => e.outcomes.clone(),
             EventDescriptor::DigitDecompositionEvent(_) => {
@@ -189,11 +190,12 @@ impl From<OracleEventData> for EventData {
         };
 
         EventData {
+            id,
             announcement: value.announcement.encode().to_hex(),
             attestation,
             event_maturity_epoch: value.announcement.oracle_event.event_maturity_epoch,
             outcomes,
-            event_id: value.announcement.oracle_event.event_id,
+            event_name: value.announcement.oracle_event.event_id,
             announcement_event_id: value.announcement_event_id,
             attestation_event_id: value.attestation_event_id,
         }

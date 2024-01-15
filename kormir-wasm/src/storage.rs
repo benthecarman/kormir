@@ -119,7 +119,7 @@ impl IndexedDb {
         Ok(())
     }
 
-    pub async fn list_events(&self) -> Result<Vec<OracleEventData>, JsError> {
+    pub async fn list_events(&self) -> Result<Vec<(u32, OracleEventData)>, JsError> {
         let tx = self
             .rexie
             .transaction(&[OBJECT_STORE_NAME], TransactionMode::ReadOnly)?;
@@ -127,12 +127,17 @@ impl IndexedDb {
         let all = store.get_all(None, None, None, None).await?;
         tx.done().await?;
 
-        let mut vec: Vec<OracleEventData> = Vec::with_capacity(all.len());
+        let mut vec = Vec::with_capacity(all.len());
         for (key, value) in all {
             let key: String = key.into_serde()?;
             if key.starts_with(ORACLE_DATA_PREFIX) {
                 let data: OracleEventData = value.into_serde()?;
-                vec.push(data)
+                let id: u32 = key
+                    .strip_prefix(ORACLE_DATA_PREFIX)
+                    .expect("just checked")
+                    .parse()
+                    .expect("id");
+                vec.push((id, data))
             }
         }
 
