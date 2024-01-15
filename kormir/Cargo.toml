@@ -1,6 +1,6 @@
 [package]
 name = "kormir"
-version = "0.1.3"
+version = "0.1.4"
 edition = "2021"
 authors = ["benthecarman <ben@mutinywallet.com>"]
 description = "DLC Oracle rust SDK"

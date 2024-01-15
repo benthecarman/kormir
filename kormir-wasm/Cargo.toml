@@ -1,6 +1,6 @@
 [package]
 name = "kormir-wasm"
-version = "0.1.3"
+version = "0.1.4"
 edition = "2021"
 authors = ["benthecarman <ben@mutinywallet.com>"]
 description = "DLC Oracle WASM SDK"
@@ -13,7 +13,7 @@ repository = "https://github.com/benthecarman/kormir"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-kormir = { path = "../kormir", version = "0.1.3", features = ["nostr"] }
+kormir = { path = "../kormir", version = "0.1.4", features = ["nostr"] }
 
 anyhow = "1.0.75"
 bip39 = "2.0.0"
