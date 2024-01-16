@@ -119,7 +119,7 @@ impl From<OracleAttestation> for Attestation {
 #[wasm_bindgen]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EventData {
-    id: u32,
+    pub id: u32,
     announcement: String,
     attestation: Option<String>,
     pub event_maturity_epoch: u32,
@@ -155,6 +155,11 @@ impl EventData {
     #[wasm_bindgen(getter)]
     pub fn event_name(&self) -> String {
         self.event_name.clone()
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn observed_outcome(&self) -> Option<String> {
+        self.observed_outcome.clone()
     }
 
     #[wasm_bindgen(getter)]
