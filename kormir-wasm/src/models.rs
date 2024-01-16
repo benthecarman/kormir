@@ -127,6 +127,7 @@ pub struct EventData {
     event_name: String,
     announcement_event_id: Option<String>,
     attestation_event_id: Option<String>,
+    observed_outcome: Option<String>,
 }
 
 #[wasm_bindgen]
@@ -176,8 +177,8 @@ impl From<(u32, OracleEventData)> for EventData {
             }
         };
 
-        let attestation = match value.signatures.len() {
-            0 => None,
+        let (attestation, observed_outcome) = match value.signatures.len() {
+            0 => (None, None),
             _ => {
                 // todo proper sorting for non-enum events
                 let attestation = OracleAttestation {
@@ -185,7 +186,9 @@ impl From<(u32, OracleEventData)> for EventData {
                     signatures: value.signatures.values().cloned().collect(),
                     outcomes: value.signatures.keys().cloned().collect(),
                 };
-                Some(attestation.encode().to_hex())
+                let attestation = attestation.encode().to_hex();
+                let outcome = value.signatures.keys().next().cloned().unwrap();
+                (Some(attestation), Some(outcome))
             }
         };
 
@@ -198,6 +201,7 @@ impl From<(u32, OracleEventData)> for EventData {
             event_name: value.announcement.oracle_event.event_id,
             announcement_event_id: value.announcement_event_id,
             attestation_event_id: value.attestation_event_id,
+            observed_outcome,
         }
     }
 }
