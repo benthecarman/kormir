@@ -68,6 +68,12 @@ impl From<hex::FromHexError> for JsError {
     }
 }
 
+impl From<nostr::key::Error> for JsError {
+    fn from(_: nostr::key::Error) -> Self {
+        JsError::InvalidArgument
+    }
+}
+
 impl From<kormir::bitcoin::secp256k1::Error> for JsError {
     fn from(_: kormir::bitcoin::secp256k1::Error) -> Self {
         JsError::StorageFailure
