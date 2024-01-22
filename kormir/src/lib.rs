@@ -4,15 +4,14 @@ pub mod error;
 #[cfg(feature = "nostr")]
 pub mod nostr_events;
 pub mod storage;
-pub mod utils;
 
 use crate::error::Error;
 use crate::storage::Storage;
 use bitcoin::hashes::{sha256, Hash};
 use bitcoin::secp256k1::{All, Message, Secp256k1, SecretKey};
 use bitcoin::util::bip32::{ChildNumber, DerivationPath, ExtendedPrivKey};
-use bitcoin::util::key::KeyPair;
 use bitcoin::{Network, XOnlyPublicKey};
+use secp256k1_zkp::KeyPair;
 use std::collections::HashMap;
 use std::str::FromStr;
 
@@ -30,7 +29,7 @@ const SIGNING_KEY_PATH: &str = "m/86'/0'/0'/0/0";
 #[derive(Debug, Clone)]
 pub struct Oracle<S: Storage> {
     pub storage: S,
-    signing_key: SecretKey,
+    key_pair: KeyPair,
     nonce_xpriv: ExtendedPrivKey,
     secp: Secp256k1<All>,
 }
@@ -40,7 +39,7 @@ impl<S: Storage> Oracle<S> {
         let secp = Secp256k1::new();
         Self {
             storage,
-            signing_key,
+            key_pair: KeyPair::from_secret_key(&secp, &signing_key),
             nonce_xpriv,
             secp,
         }
@@ -62,20 +61,20 @@ impl<S: Storage> Oracle<S> {
 
         Ok(Self {
             storage,
-            signing_key,
+            key_pair: KeyPair::from_secret_key(&secp, &signing_key),
             nonce_xpriv,
             secp,
         })
     }
 
     pub fn public_key(&self) -> XOnlyPublicKey {
-        self.signing_key.x_only_public_key(&self.secp).0
+        self.key_pair.x_only_public_key().0
     }
 
     /// Returns the keys for the oracle, used for Nostr.
     #[cfg(feature = "nostr")]
     pub fn nostr_keys(&self) -> nostr::Keys {
-        let sec = nostr::key::SecretKey::from_slice(&self.signing_key[..])
+        let sec = nostr::key::SecretKey::from_slice(&self.key_pair.secret_key().secret_bytes()[..])
             .expect("just converting types");
         nostr::Keys::new(sec)
     }
@@ -117,10 +116,7 @@ impl<S: Storage> Oracle<S> {
         let mut data = Vec::new();
         oracle_event.write(&mut data).map_err(|_| Error::Internal)?;
         let msg = Message::from_hashed_data::<sha256::Hash>(&data);
-        let announcement_signature = self.secp.sign_schnorr_no_aux_rand(
-            &msg,
-            &KeyPair::from_secret_key(&self.secp, &self.signing_key),
-        );
+        let announcement_signature = self.secp.sign_schnorr_no_aux_rand(&msg, &self.key_pair);
 
         let ann = OracleAnnouncement {
             oracle_event,
@@ -160,8 +156,13 @@ impl<S: Storage> Oracle<S> {
         let nonce_key = self.get_nonce_key(*nonce_index);
 
         let msg = Message::from_hashed_data::<sha256::Hash>(outcome.as_bytes());
-        let sig =
-            utils::schnorr_sign_with_nonce(&self.secp, msg.as_ref(), self.signing_key, nonce_key);
+
+        let sig = dlc::secp_utils::schnorrsig_sign_with_nonce(
+            &self.secp,
+            &msg,
+            &self.key_pair,
+            &nonce_key.secret_bytes(),
+        );
 
         // verify our nonce is the same as the one in the announcement
         debug_assert!(sig.encode()[..32] == nonce_key.x_only_public_key(&self.secp).0.serialize());
@@ -169,11 +170,7 @@ impl<S: Storage> Oracle<S> {
         // verify our signature
         if self
             .secp
-            .verify_schnorr(
-                &sig,
-                &msg,
-                &self.signing_key.x_only_public_key(&self.secp).0,
-            )
+            .verify_schnorr(&sig, &msg, &self.key_pair.x_only_public_key().0)
             .is_err()
         {
             return Err(Error::Internal);

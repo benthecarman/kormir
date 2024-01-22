@@ -4,4 +4,3 @@
 
 
 Kormir is a basic DLC Oracle written in rust.
-This shouldn't be used in production, it's just a PoC, I rolled my own crypto and it's not audited.
