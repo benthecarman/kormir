@@ -22,6 +22,8 @@ pub use dlc_messages::oracle_msgs::{
 };
 pub use lightning;
 pub use lightning::util::ser::{Readable, Writeable};
+#[cfg(feature = "nostr")]
+pub use nostr;
 
 // first key for taproot address
 const SIGNING_KEY_PATH: &str = "m/86'/0'/0'/0/0";
