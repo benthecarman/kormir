@@ -972,7 +972,7 @@ dependencies = [
 
 [[package]]
 name = "kormir"
-version = "0.1.7"
+version = "0.1.8"
 dependencies = [
  "base64 0.13.1",
  "bitcoin 0.29.2",
@@ -988,7 +988,7 @@ dependencies = [
 
 [[package]]
 name = "kormir-server"
-version = "0.1.7"
+version = "0.1.8"
 dependencies = [
  "anyhow",
  "axum",
@@ -1012,7 +1012,7 @@ dependencies = [
 
 [[package]]
 name = "kormir-wasm"
-version = "0.1.7"
+version = "0.1.8"
 dependencies = [
  "anyhow",
  "bip39",
