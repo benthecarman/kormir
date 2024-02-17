@@ -1,7 +1,6 @@
 use std::str::FromStr;
 
 use gloo_utils::format::JsValueSerdeExt;
-use nostr::key::FromSkStr;
 use nostr::{EventId, JsonUtil, Keys};
 use nostr_sdk::Client;
 use wasm_bindgen::prelude::wasm_bindgen;
@@ -66,7 +65,7 @@ impl Kormir {
     }
 
     pub async fn restore(str: String) -> Result<(), JsError> {
-        let nsec = Keys::from_sk_str(&str)?;
+        let nsec = Keys::parse(&str)?;
         IndexedDb::clear().await?;
         let storage = IndexedDb::new().await?;
 
