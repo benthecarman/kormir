@@ -5,7 +5,6 @@ use bitcoin::secp256k1::schnorr::Signature;
 use bitcoin::secp256k1::XOnlyPublicKey;
 use diesel::prelude::*;
 use diesel::r2d2::{ConnectionManager, Pool};
-use diesel::{Connection, PgConnection, RunQueryDsl};
 use diesel_migrations::{embed_migrations, EmbeddedMigrations};
 use dlc_messages::oracle_msgs::{EventDescriptor, OracleAnnouncement};
 use kormir::error::Error;
@@ -66,7 +65,11 @@ impl PostgresStorage {
                     .flat_map(|nonce| nonce.outcome_and_sig())
                     .collect();
 
+                let announcement_event_id = event.announcement_event_id().map(|ann| ann.to_string()); 
+                let attestation_event_id = event.attestation_event_id().map(|att| att.to_string());
+
                 let data = OracleEventData {
+                    id: Some(event.id as u32),
                     announcement: OracleAnnouncement {
                         announcement_signature: event.announcement_signature(),
                         oracle_public_key: self.oracle_public_key,
@@ -74,8 +77,8 @@ impl PostgresStorage {
                     },
                     indexes,
                     signatures,
-                    announcement_event_id: None,
-                    attestation_event_id: None,
+                    announcement_event_id,
+                    attestation_event_id,
                 };
                 oracle_events.push(data);
             }
@@ -204,6 +207,7 @@ impl Storage for PostgresStorage {
                 .collect::<anyhow::Result<Vec<_>>>()?;
 
             Ok(OracleEventData {
+                id: Some(id as u32),
                 announcement: OracleAnnouncement {
                     announcement_signature: event.announcement_signature(),
                     oracle_public_key: self.oracle_public_key,
@@ -241,6 +245,7 @@ impl Storage for PostgresStorage {
                 .collect();
 
             Ok(Some(OracleEventData {
+                id: Some(id as u32),
                 announcement: OracleAnnouncement {
                     announcement_signature: event.announcement_signature(),
                     oracle_public_key: self.oracle_public_key,

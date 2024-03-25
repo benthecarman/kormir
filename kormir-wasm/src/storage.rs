@@ -177,6 +177,7 @@ impl Storage for IndexedDb {
         // generate random id
         let id = *indexes.first().unwrap();
         let event = OracleEventData {
+            id: Some(id),
             announcement,
             indexes,
             signatures: Default::default(),

@@ -33,6 +33,7 @@ pub trait Storage {
 /// Data saved for an oracle announcement
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OracleEventData {
+    pub id: Option<u32>,
     pub announcement: OracleAnnouncement,
     pub indexes: Vec<u32>,
     pub signatures: HashMap<String, Signature>,
@@ -82,6 +83,7 @@ impl Storage for MemoryStorage {
         // generate random id
         let id = rand::random::<u32>();
         let event = OracleEventData {
+            id: Some(id),
             announcement,
             indexes,
             signatures: Default::default(),
