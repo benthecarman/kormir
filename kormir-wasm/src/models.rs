@@ -1,5 +1,4 @@
 use gloo_utils::format::JsValueSerdeExt;
-use kormir::bitcoin::hashes::hex::ToHex;
 use kormir::storage::OracleEventData;
 use kormir::{EventDescriptor, OracleAnnouncement, OracleAttestation, Writeable};
 use serde::{Deserialize, Serialize};
@@ -60,13 +59,13 @@ impl From<OracleAnnouncement> for Announcement {
         };
 
         Self {
-            announcement_signature: value.announcement_signature.to_hex(),
-            oracle_public_key: value.announcement_signature.to_hex(),
+            announcement_signature: hex::encode(value.announcement_signature.encode()),
+            oracle_public_key: hex::encode(value.announcement_signature.encode()),
             oracle_nonces: value
                 .oracle_event
                 .oracle_nonces
                 .iter()
-                .map(|x| x.to_hex())
+                .map(|x| hex::encode(x.serialize()))
                 .collect(),
             event_maturity_epoch: value.oracle_event.event_maturity_epoch,
             outcomes,
@@ -109,8 +108,8 @@ impl Attestation {
 impl From<OracleAttestation> for Attestation {
     fn from(value: OracleAttestation) -> Self {
         Self {
-            oracle_public_key: value.oracle_public_key.to_hex(),
-            signatures: value.signatures.iter().map(|x| x.to_hex()).collect(),
+            oracle_public_key: hex::encode(value.oracle_public_key.serialize()),
+            signatures: value.signatures.iter().map(|x| hex::encode(x.encode())).collect(),
             outcomes: value.outcomes,
         }
     }
@@ -191,7 +190,7 @@ impl From<(u32, OracleEventData)> for EventData {
                     signatures: value.signatures.values().cloned().collect(),
                     outcomes: value.signatures.keys().cloned().collect(),
                 };
-                let attestation = attestation.encode().to_hex();
+                let attestation = hex::encode(attestation.encode());
                 let outcome = value.signatures.keys().next().cloned().unwrap();
                 (Some(attestation), Some(outcome))
             }
@@ -199,7 +198,7 @@ impl From<(u32, OracleEventData)> for EventData {
 
         EventData {
             id,
-            announcement: value.announcement.encode().to_hex(),
+            announcement: hex::encode(value.announcement.encode()),
             attestation,
             event_maturity_epoch: value.announcement.oracle_event.event_maturity_epoch,
             outcomes,

@@ -6,7 +6,6 @@ use nostr_sdk::Client;
 use wasm_bindgen::prelude::wasm_bindgen;
 use wasm_bindgen::JsValue;
 
-use kormir::bitcoin::hashes::hex::ToHex;
 use kormir::bitcoin::secp256k1::SecretKey;
 use kormir::storage::Storage;
 use kormir::{Oracle, OracleAnnouncement, OracleAttestation, Readable, Writeable};
@@ -44,7 +43,7 @@ impl Kormir {
 
                 let nsec = SecretKey::from_slice(&entropy)?;
                 storage
-                    .save_to_indexed_db(NSEC_KEY, nsec.secret_bytes().to_hex())
+                    .save_to_indexed_db(NSEC_KEY, hex::encode(nsec.secret_bytes()))
                     .await?;
                 nsec
             }
@@ -72,10 +71,9 @@ impl Kormir {
         storage
             .save_to_indexed_db(
                 NSEC_KEY,
-                nsec.secret_key()
+                hex::encode(nsec.secret_key()
                     .expect("just imported")
-                    .secret_bytes()
-                    .to_hex(),
+                    .secret_bytes()),
             )
             .await?;
 
@@ -83,7 +81,7 @@ impl Kormir {
     }
 
     pub fn get_public_key(&self) -> String {
-        self.oracle.public_key().to_hex()
+        hex::encode(self.oracle.public_key().serialize())
     }
 
     pub async fn create_enum_event(
@@ -97,7 +95,7 @@ impl Kormir {
             .create_enum_event(event_id, outcomes, event_maturity_epoch)
             .await?;
 
-        let hex = ann.encode().to_hex();
+        let hex = hex::encode(ann.encode());
 
         log::info!("Created enum event: {hex}");
 
@@ -143,7 +141,7 @@ impl Kormir {
 
         self.client.send_event(event).await?;
 
-        Ok(attestation.encode().to_hex())
+        Ok(hex::encode(attestation.encode()))
     }
 
     pub async fn list_events(&self) -> Result<JsValue /* Vec<EventData> */, JsError> {

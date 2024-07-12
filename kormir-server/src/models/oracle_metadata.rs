@@ -1,4 +1,4 @@
-use bitcoin::XOnlyPublicKey;
+use bitcoin::key::XOnlyPublicKey;
 use diesel::prelude::*;
 use serde::{Deserialize, Serialize};
 

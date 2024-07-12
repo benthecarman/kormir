@@ -104,8 +104,8 @@ impl From<nostr_sdk::client::Error> for JsError {
     }
 }
 
-impl From<kormir::bitcoin::util::bip32::Error> for JsError {
-    fn from(_: kormir::bitcoin::util::bip32::Error) -> Self {
+impl From<kormir::bitcoin::bip32::Error> for JsError {
+    fn from(_: kormir::bitcoin::bip32::Error) -> Self {
         JsError::Internal
     }
 }
