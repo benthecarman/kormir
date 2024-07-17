@@ -1,8 +1,7 @@
 use crate::State;
 use axum::http::StatusCode;
 use axum::{Extension, Json};
-use bitcoin::hashes::hex::ToHex;
-use bitcoin::XOnlyPublicKey;
+use bitcoin::key::XOnlyPublicKey;
 use kormir::storage::{OracleEventData, Storage};
 use lightning::util::ser::Writeable;
 use nostr::{EventId, JsonUtil};
@@ -43,7 +42,7 @@ async fn create_enum_event_impl(state: &State, body: CreateEnumEvent) -> anyhow:
         .oracle
         .create_enum_event(body.event_id, body.outcomes, body.event_maturity_epoch)
         .await?;
-    let hex = ann.encode().to_hex();
+    let hex = hex::encode(ann.encode());
 
     log::info!("Created enum event: {hex}");
 
@@ -114,7 +113,7 @@ pub struct SignEnumEvent {
 
 async fn sign_enum_event_impl(state: &State, body: SignEnumEvent) -> anyhow::Result<String> {
     let att = state.oracle.sign_enum_event(body.id, body.outcome).await?;
-    let hex = att.encode().to_hex();
+    let hex = hex::encode(att.encode());
 
     log::info!("Signed enum event: {hex}");
 

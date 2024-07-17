@@ -9,8 +9,9 @@ use crate::error::Error;
 use crate::storage::Storage;
 use bitcoin::hashes::{sha256, Hash};
 use bitcoin::secp256k1::{All, Message, Secp256k1, SecretKey};
-use bitcoin::util::bip32::{ChildNumber, DerivationPath, ExtendedPrivKey};
-use bitcoin::{Network, XOnlyPublicKey};
+use bitcoin::bip32::{ChildNumber, DerivationPath, ExtendedPrivKey};
+use bitcoin::Network;
+use bitcoin::key::XOnlyPublicKey;
 use secp256k1_zkp::KeyPair;
 use std::collections::HashMap;
 use std::str::FromStr;
@@ -57,7 +58,7 @@ impl<S: Storage> Oracle<S> {
     pub fn from_signing_key(storage: S, signing_key: SecretKey) -> Result<Self, Error> {
         let secp = Secp256k1::new();
 
-        let xpriv_bytes = sha256::Hash::hash(&signing_key.secret_bytes());
+        let xpriv_bytes = sha256::Hash::hash(&signing_key.secret_bytes()).to_byte_array();
         let nonce_xpriv = ExtendedPrivKey::new_master(Network::Bitcoin, &xpriv_bytes)
             .map_err(|_| Error::Internal)?;
 
@@ -211,7 +212,6 @@ pub fn derive_signing_key(
 mod test {
     use super::*;
     use crate::storage::MemoryStorage;
-    use bitcoin::hashes::hex::ToHex;
     use bitcoin::secp256k1::rand::{thread_rng, Rng};
     use bitcoin::Network;
 
@@ -259,7 +259,7 @@ mod test {
             .await
             .unwrap();
 
-        println!("{}", ann.encode().to_hex());
+        println!("{}", hex::encode(ann.encode()));
 
         let attestation = oracle.sign_enum_event(id, "a".to_string()).await.unwrap();
         assert!(attestation.outcomes.contains(&"a".to_string()));
@@ -273,7 +273,7 @@ mod test {
         let bytes = sig.encode();
         let (rx, _sig) = bytes.split_at(32);
 
-        println!("{}", attestation.encode().to_hex());
+        println!("{}", hex::encode(attestation.encode()));
 
         assert_eq!(rx, expected_nonce)
     }

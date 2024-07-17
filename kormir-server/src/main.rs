@@ -1,7 +1,6 @@
 use axum::http::{StatusCode, Uri};
 use axum::routing::{get, post};
 use axum::{Extension, Router};
-use bitcoin::hashes::hex::ToHex;
 use bitcoin::secp256k1::{Secp256k1, SecretKey};
 use diesel::r2d2::{ConnectionManager, Pool};
 use diesel::PgConnection;
@@ -63,8 +62,8 @@ async fn main() -> anyhow::Result<()> {
             if metadata.pubkey() != pubkey {
                 anyhow::bail!(
                     "Database's oracle pubkey ({}) does not match signing key ({})",
-                    metadata.pubkey().to_hex(),
-                    pubkey.to_hex()
+                    hex::encode(metadata.pubkey().serialize()),
+                    hex::encode(pubkey.serialize()),
                 );
             }
         }
