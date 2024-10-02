@@ -144,6 +144,70 @@ impl Kormir {
         Ok(hex::encode(attestation.encode()))
     }
 
+    pub async fn create_numeric_event(
+        &self,
+        event_id: String,
+        base: u16,
+        num_digits: u16,
+        is_signed: bool,
+        precision: i32,
+        unit: String,
+        event_maturity_epoch: u32,
+    ) -> Result<String, JsError> {
+        let (id, ann) = self
+            .oracle
+            .create_numeric_event(event_id, base, num_digits, is_signed, precision, unit, event_maturity_epoch)
+            .await?;
+
+        let hex = hex::encode(ann.encode());
+
+        log::info!("Created numeric event: {hex}");
+
+        let event = kormir::nostr_events::create_announcement_event(
+            &self.oracle.nostr_keys(),
+            &ann,
+            &self.relays,
+        )?;
+
+        log::debug!("Created nostr event: {}", event.as_json());
+
+        self.storage
+            .add_announcement_event_id(id, event.id.to_hex())
+            .await?;
+
+        log::debug!(
+            "Added announcement event id to storage: {}",
+            event.id.to_hex()
+        );
+
+        self.client.send_event(event).await?;
+
+        log::trace!("Sent event to nostr");
+
+        Ok(hex)
+    }
+
+    pub async fn sign_numeric_event(&self, id: u32, outcome: i64) -> Result<String, JsError> {
+        let attestation = self.oracle.sign_numeric_event(id, outcome).await?;
+
+        let event = self.storage.get_event(id).await?.ok_or(JsError::NotFound)?;
+        let event_id = EventId::from_hex(event.announcement_event_id.unwrap()).unwrap();
+
+        let event = kormir::nostr_events::create_attestation_event(
+            &self.oracle.nostr_keys(),
+            &attestation,
+            event_id,
+        )?;
+
+        self.storage
+            .add_attestation_event_id(id, event.id.to_hex())
+            .await?;
+
+        self.client.send_event(event).await?;
+
+        Ok(hex::encode(attestation.encode()))
+    }
+
     pub async fn list_events(&self) -> Result<JsValue /* Vec<EventData> */, JsError> {
         let data = self.storage.list_events().await?;
         let events = data.into_iter().map(EventData::from).collect::<Vec<_>>();

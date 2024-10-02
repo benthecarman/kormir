@@ -99,6 +99,8 @@ async fn main() -> anyhow::Result<()> {
         .route("/list-events", get(list_events))
         .route("/create-enum", post(create_enum_event))
         .route("/sign-enum", post(sign_enum_event))
+        .route("/create-numeric", post(create_numeric_event))
+        .route("/sign-numeric", post(sign_numeric_event))
         .fallback(fallback)
         .layer(Extension(state));
 

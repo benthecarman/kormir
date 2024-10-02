@@ -65,7 +65,8 @@ impl PostgresStorage {
                     .flat_map(|nonce| nonce.outcome_and_sig())
                     .collect();
 
-                let announcement_event_id = event.announcement_event_id().map(|ann| ann.to_string()); 
+                let announcement_event_id =
+                    event.announcement_event_id().map(|ann| ann.to_string());
                 let attestation_event_id = event.attestation_event_id().map(|att| att.to_string());
 
                 let data = OracleEventData {

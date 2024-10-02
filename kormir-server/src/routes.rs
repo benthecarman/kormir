@@ -162,6 +162,149 @@ pub async fn sign_enum_event(
     }
 }
 
+#[derive(Debug, Clone, Deserialize)]
+pub struct CreateNumericEvent {
+    pub event_id: String,
+    pub base: u16,
+    pub num_digits: u16,
+    pub is_signed: bool,
+    pub precision: i32,
+    pub unit: String,
+    pub event_maturity_epoch: u32,
+}
+
+async fn create_numeric_event_impl(state: &State, body: crate::routes::CreateNumericEvent) -> anyhow::Result<String> {
+    let (id, ann) = state
+        .oracle
+        .create_numeric_event(body.event_id, body.base, body.num_digits, body.is_signed, body.precision, body.unit, body.event_maturity_epoch)
+        .await?;
+    let hex = hex::encode(ann.encode());
+
+    log::info!("Created numeric event: {hex}");
+
+    let relays = state
+        .client
+        .relays()
+        .await
+        .keys()
+        .map(|x| x.to_string())
+        .collect::<Vec<_>>();
+
+    let event =
+        kormir::nostr_events::create_announcement_event(&state.oracle.nostr_keys(), &ann, &relays)?;
+
+    log::debug!("Broadcasting nostr event: {}", event.as_json());
+
+    state
+        .oracle
+        .storage
+        .add_announcement_event_id(id, event.id)
+        .await?;
+
+    log::debug!(
+        "Added announcement event id to storage: {}",
+        event.id.to_hex()
+    );
+
+    state.client.send_event(event).await?;
+
+    Ok(hex)
+}
+
+pub async fn create_numeric_event(
+    Extension(state): Extension<State>,
+    Json(body): Json<crate::routes::CreateNumericEvent>,
+) -> Result<Json<String>, (StatusCode, String)> {
+    if body.base == 0 {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            "Base must be greater than 0".to_string(),
+        ));
+    }
+
+    if body.num_digits == 0 {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            "Number of digits must be greater than 0".to_string(),
+        ));
+    }
+
+    if body.event_maturity_epoch < now() {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            "Event maturity epoch must be in the future".to_string(),
+        ));
+    }
+
+    match crate::routes::create_numeric_event_impl(&state, body).await {
+        Ok(hex) => Ok(Json(hex)),
+        Err(e) => {
+            eprintln!("Error creating numeric event: {:?}", e);
+            Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Error creating numeric event".to_string(),
+            ))
+        }
+    }
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct SignNumericEvent {
+    pub id: u32,
+    pub outcome: i64,
+}
+
+async fn sign_numeric_event_impl(state: &State, body: crate::routes::SignNumericEvent) -> anyhow::Result<String> {
+    let att = state.oracle.sign_numeric_event(body.id, body.outcome).await?;
+    let hex = hex::encode(att.encode());
+
+    log::info!("Signed numeric event: {hex}");
+
+    let data = state.oracle.storage.get_event(body.id).await?;
+    let event_id = data
+        .and_then(|d| {
+            d.announcement_event_id
+                .and_then(|s| EventId::from_hex(s).ok())
+        })
+        .ok_or_else(|| anyhow::anyhow!("Failed to get announcement event id"))?;
+
+    let event =
+        kormir::nostr_events::create_attestation_event(&state.oracle.nostr_keys(), &att, event_id)?;
+
+    log::debug!("Broadcasting nostr event: {}", event.as_json());
+
+    state
+        .oracle
+        .storage
+        .add_attestation_event_id(body.id, event.id)
+        .await?;
+
+    log::debug!(
+        "Added announcement event id to storage: {}",
+        event.id.to_hex()
+    );
+
+    state.client.send_event(event).await?;
+
+    Ok(hex)
+}
+
+pub async fn sign_numeric_event(
+    Extension(state): Extension<State>,
+    Json(body): Json<crate::routes::SignNumericEvent>,
+) -> Result<Json<String>, (StatusCode, String)> {
+    match crate::routes::sign_numeric_event_impl(&state, body).await {
+        Ok(hex) => Ok(Json(hex)),
+        Err(e) => {
+            eprintln!("Error signing numeric event: {:?}", e);
+            Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Error signing numeric event".to_string(),
+            ))
+        }
+    }
+}
+
 fn now() -> u32 {
     SystemTime::now()
         .duration_since(SystemTime::UNIX_EPOCH)
