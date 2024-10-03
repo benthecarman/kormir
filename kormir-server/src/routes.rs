@@ -165,7 +165,6 @@ pub async fn sign_enum_event(
 #[derive(Debug, Clone, Deserialize)]
 pub struct CreateNumericEvent {
     pub event_id: String,
-    pub base: Option<u16>,
     pub num_digits: Option<u16>,
     pub is_signed: Option<bool>,
     pub precision: Option<i32>,
@@ -181,7 +180,6 @@ async fn create_numeric_event_impl(
         .oracle
         .create_numeric_event(
             body.event_id,
-            body.base.unwrap_or(2),
             body.num_digits.unwrap_or(18),
             body.is_signed.unwrap_or(false),
             body.precision.unwrap_or(0),
@@ -226,13 +224,6 @@ pub async fn create_numeric_event(
     Extension(state): Extension<State>,
     Json(body): Json<crate::routes::CreateNumericEvent>,
 ) -> Result<Json<String>, (StatusCode, String)> {
-    if body.base.is_some() && body.base.unwrap() == 0 {
-        return Err((
-            StatusCode::BAD_REQUEST,
-            "Base must be greater than 0".to_string(),
-        ));
-    }
-
     if body.num_digits.is_some() && body.num_digits.unwrap() == 0 {
         return Err((
             StatusCode::BAD_REQUEST,

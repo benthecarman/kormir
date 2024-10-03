@@ -145,7 +145,6 @@ impl Kormir {
     pub async fn create_numeric_event(
         &self,
         event_id: String,
-        base: u16,
         num_digits: u16,
         is_signed: bool,
         precision: i32,
@@ -156,7 +155,6 @@ impl Kormir {
             .oracle
             .create_numeric_event(
                 event_id,
-                base,
                 num_digits,
                 is_signed,
                 precision,

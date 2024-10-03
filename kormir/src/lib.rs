@@ -197,14 +197,13 @@ impl<S: Storage> Oracle<S> {
     pub async fn create_numeric_event(
         &self,
         event_id: String,
-        base: u16,
         num_digits: u16,
         is_signed: bool,
         precision: i32,
         unit: String,
         event_maturity_epoch: u32,
     ) -> Result<(u32, OracleAnnouncement), Error> {
-        if base == 0 || num_digits == 0 {
+        if num_digits == 0 {
             return Err(Error::InvalidArgument);
         }
 
@@ -224,7 +223,7 @@ impl<S: Storage> Oracle<S> {
             .collect();
         let event_descriptor =
             EventDescriptor::DigitDecompositionEvent(DigitDecompositionEventDescriptor {
-                base,
+                base: 2,
                 is_signed,
                 unit,
                 precision,
@@ -271,6 +270,9 @@ impl<S: Storage> Oracle<S> {
             EventDescriptor::DigitDecompositionEvent(desc) => desc,
             _ => return Err(Error::Internal),
         };
+        if descriptor.base != 2 {
+            return Err(Error::Internal);
+        }
         let max_value = (descriptor.base as i64).pow(descriptor.nb_digits as u32) - 1;
         let min_value = if descriptor.is_signed { -max_value } else { 0 };
         if outcome < min_value || outcome > max_value {
@@ -435,14 +437,12 @@ mod test {
         let oracle = create_oracle();
 
         let event_id = "test_unsigned_numeric".to_string();
-        let base = 2;
         let num_digits = 20;
 
         let event_maturity_epoch = 100;
         let (_, ann) = oracle
             .create_numeric_event(
                 event_id.clone(),
-                base,
                 num_digits,
                 false,
                 0,
@@ -472,14 +472,12 @@ mod test {
         let oracle = create_oracle();
 
         let event_id = "test_unsigned_numeric".to_string();
-        let base = 2;
         let num_digits = 16;
 
         let event_maturity_epoch = 100;
         let (id, ann) = oracle
             .create_numeric_event(
                 event_id.clone(),
-                base,
                 num_digits,
                 false,
                 0,
