@@ -181,7 +181,7 @@ impl From<(u32, OracleEventData)> for EventData {
         let outcomes = match &value.announcement.oracle_event.event_descriptor {
             EventDescriptor::EnumEvent(e) => e.outcomes.clone(),
             EventDescriptor::DigitDecompositionEvent(_) => {
-                unimplemented!("Numeric events not supported")
+                vec![]
             }
         };
 
@@ -191,11 +191,28 @@ impl From<(u32, OracleEventData)> for EventData {
                 // todo proper sorting for non-enum events
                 let attestation = OracleAttestation {
                     oracle_public_key: value.announcement.oracle_public_key,
-                    signatures: value.signatures.values().cloned().collect(),
-                    outcomes: value.signatures.keys().cloned().collect(),
+                    signatures: value.signatures.iter().map(|x| x.1.clone()).collect(),
+                    outcomes: value.signatures.iter().map(|x| x.0.clone()).collect(),
                 };
                 let attestation = hex::encode(attestation.encode());
-                let outcome = value.signatures.keys().next().cloned().unwrap();
+                let outcome = match &value.announcement.oracle_event.event_descriptor {
+                    EventDescriptor::EnumEvent(_) => {
+                        value.signatures.iter().map(|x| x.0.clone()).next().unwrap()
+                    }
+                    EventDescriptor::DigitDecompositionEvent(_) => {
+                        let mut outcome_str = value
+                            .signatures
+                            .iter()
+                            .map(|x| x.0.clone())
+                            .collect::<Vec<_>>()
+                            .join("");
+                        if outcome_str.starts_with('+') {
+                            outcome_str.remove(0);
+                        }
+                        let outcome = i64::from_str_radix(&*outcome_str, 2).unwrap();
+                        outcome.to_string()
+                    }
+                };
                 (Some(attestation), Some(outcome))
             }
         };

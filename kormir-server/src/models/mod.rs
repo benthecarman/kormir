@@ -11,7 +11,6 @@ use kormir::error::Error;
 use kormir::storage::{OracleEventData, Storage};
 use lightning::util::ser::Writeable;
 use nostr::EventId;
-use std::collections::HashMap;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
 
@@ -180,7 +179,7 @@ impl Storage for PostgresStorage {
     async fn save_signatures(
         &self,
         id: u32,
-        signatures: HashMap<String, Signature>,
+        signatures: Vec<(String, Signature)>,
     ) -> Result<OracleEventData, Error> {
         let id = id as i32;
         let mut conn = self.db_pool.get().map_err(|_| Error::StorageFailure)?;

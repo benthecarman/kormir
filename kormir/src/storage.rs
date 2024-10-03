@@ -23,7 +23,7 @@ pub trait Storage {
     async fn save_signatures(
         &self,
         id: u32,
-        sigs: HashMap<String, Signature>,
+        sigs: Vec<(String, Signature)>,
     ) -> Result<OracleEventData, Error>;
 
     /// Get the announcement data for the given id
@@ -36,7 +36,7 @@ pub struct OracleEventData {
     pub id: Option<u32>,
     pub announcement: OracleAnnouncement,
     pub indexes: Vec<u32>,
-    pub signatures: HashMap<String, Signature>,
+    pub signatures: Vec<(String, Signature)>,
     #[cfg(feature = "nostr")]
     pub announcement_event_id: Option<String>,
     #[cfg(feature = "nostr")]
@@ -102,7 +102,7 @@ impl Storage for MemoryStorage {
     async fn save_signatures(
         &self,
         id: u32,
-        sigs: HashMap<String, Signature>,
+        sigs: Vec<(String, Signature)>,
     ) -> Result<OracleEventData, Error> {
         let mut data = self.data.try_write().unwrap();
         let Some(mut event) = data.get(&id).cloned() else {

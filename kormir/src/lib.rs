@@ -13,7 +13,6 @@ use bitcoin::key::XOnlyPublicKey;
 use bitcoin::secp256k1::{All, Message, Secp256k1, SecretKey};
 use bitcoin::Network;
 use secp256k1_zkp::KeyPair;
-use std::collections::HashMap;
 use std::str::FromStr;
 
 pub use bitcoin;
@@ -180,8 +179,7 @@ impl<S: Storage> Oracle<S> {
             return Err(Error::Internal);
         };
 
-        let mut sigs = HashMap::with_capacity(1);
-        sigs.insert(outcome.clone(), sig);
+        let sigs = vec![(outcome.clone(), sig)];
 
         self.storage.save_signatures(id, sigs).await?;
 
@@ -306,7 +304,7 @@ impl<S: Storage> Oracle<S> {
 
         let nonce_keys = data.indexes.iter().map(|i| self.get_nonce_key(*i));
 
-        let mut sigs = HashMap::with_capacity(outcomes.len());
+        let mut sigs: Vec<(String, Signature)> = vec![];
 
         let signatures = outcomes
             .iter()
@@ -331,7 +329,7 @@ impl<S: Storage> Oracle<S> {
                 {
                     return Err(Error::Internal);
                 };
-                sigs.insert(outcome.clone(), sig);
+                sigs.push((outcome.clone(), sig));
                 Ok(sig)
             })
             .collect::<Result<Vec<_>, Error>>()?;
