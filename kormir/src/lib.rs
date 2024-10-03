@@ -440,7 +440,15 @@ mod test {
 
         let event_maturity_epoch = 100;
         let (_, ann) = oracle
-            .create_numeric_event(event_id.clone(), base, num_digits, false, 0, "m/s".into(), event_maturity_epoch)
+            .create_numeric_event(
+                event_id.clone(),
+                base,
+                num_digits,
+                false,
+                0,
+                "m/s".into(),
+                event_maturity_epoch,
+            )
             .await
             .unwrap();
 
@@ -469,15 +477,29 @@ mod test {
 
         let event_maturity_epoch = 100;
         let (id, ann) = oracle
-            .create_numeric_event(event_id.clone(), base, num_digits, false, 0, "m/s".into(), event_maturity_epoch)
+            .create_numeric_event(
+                event_id.clone(),
+                base,
+                num_digits,
+                false,
+                0,
+                "m/s".into(),
+                event_maturity_epoch,
+            )
             .await
             .unwrap();
 
         println!("{}", hex::encode(ann.encode()));
-        let res  = oracle.sign_numeric_event(id,0x55555).await;
+        let res = oracle.sign_numeric_event(id, 0x55555).await;
         assert!(res.is_err());
-        let attestation = oracle.sign_numeric_event(id,0x5555).await.unwrap();
-        assert_eq!(attestation.outcomes, vec!["0", "1", "0", "1", "0", "1", "0", "1", "0", "1", "0", "1", "0", "1", "0", "1"].iter().map(|x| x.to_string()).collect::<Vec<_>>());
+        let attestation = oracle.sign_numeric_event(id, 0x5555).await.unwrap();
+        assert_eq!(
+            attestation.outcomes,
+            vec!["0", "1", "0", "1", "0", "1", "0", "1", "0", "1", "0", "1", "0", "1", "0", "1"]
+                .iter()
+                .map(|x| x.to_string())
+                .collect::<Vec<_>>()
+        );
         assert_eq!(attestation.oracle_public_key, oracle.public_key());
         assert_eq!(attestation.signatures.len(), 16);
         assert_eq!(attestation.outcomes.len(), 16);
@@ -495,5 +517,4 @@ mod test {
 
         println!("{}", hex::encode(attestation.encode()));
     }
-
 }

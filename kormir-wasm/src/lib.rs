@@ -71,9 +71,7 @@ impl Kormir {
         storage
             .save_to_indexed_db(
                 NSEC_KEY,
-                hex::encode(nsec.secret_key()
-                    .expect("just imported")
-                    .secret_bytes()),
+                hex::encode(nsec.secret_key().expect("just imported").secret_bytes()),
             )
             .await?;
 
@@ -156,7 +154,15 @@ impl Kormir {
     ) -> Result<String, JsError> {
         let (id, ann) = self
             .oracle
-            .create_numeric_event(event_id, base, num_digits, is_signed, precision, unit, event_maturity_epoch)
+            .create_numeric_event(
+                event_id,
+                base,
+                num_digits,
+                is_signed,
+                precision,
+                unit,
+                event_maturity_epoch,
+            )
             .await?;
 
         let hex = hex::encode(ann.encode());
