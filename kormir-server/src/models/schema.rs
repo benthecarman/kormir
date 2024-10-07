@@ -39,8 +39,4 @@ diesel::table! {
 
 diesel::joinable!(event_nonces -> events (event_id));
 
-diesel::allow_tables_to_appear_in_same_query!(
-    event_nonces,
-    events,
-    oracle_metadata,
-);
+diesel::allow_tables_to_appear_in_same_query!(event_nonces, events, oracle_metadata,);
