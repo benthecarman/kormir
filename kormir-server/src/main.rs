@@ -78,7 +78,7 @@ async fn main() -> anyhow::Result<()> {
     )?;
 
     let relays = std::env::var("KORMIR_RELAYS")
-        .unwrap_or("wss://nostr.mutinywallet.com".to_string())
+        .unwrap_or("wss://relay.damus.io".to_string())
         .split(' ')
         .map(|s| s.to_string())
         .collect::<Vec<_>>();
