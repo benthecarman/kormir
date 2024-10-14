@@ -1,11 +1,16 @@
 use crate::State;
+use axum::extract::Query;
 use axum::http::StatusCode;
 use axum::{Extension, Json};
 use bitcoin::key::XOnlyPublicKey;
+use dlc_messages::oracle_msgs::OracleAttestation;
+use dlc_messages::ser_impls::write_as_tlv;
 use kormir::storage::{OracleEventData, Storage};
 use lightning::util::ser::Writeable;
 use nostr::{EventId, JsonUtil};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
+use std::collections::HashMap;
 use std::time::SystemTime;
 
 pub async fn health_check() -> Result<Json<()>, (StatusCode, String)> {
@@ -19,15 +24,29 @@ pub async fn get_pubkey(
 }
 
 pub async fn list_events(
+    Query(params): Query<HashMap<String, String>>,
     Extension(state): Extension<State>,
-) -> Result<Json<Vec<OracleEventData>>, (StatusCode, String)> {
+) -> Result<Json<Value>, (StatusCode, String)> {
     let events = state.oracle.storage.list_events().await.map_err(|_| {
         (
             StatusCode::INTERNAL_SERVER_ERROR,
             "Failed to list events".to_string(),
         )
     })?;
-    Ok(Json(events))
+
+    if let Some(format) = params.get("format") {
+        if format == "json" {
+            Ok(list_events_json(&events))
+        } else if format == "hex" {
+            Ok(list_events_hex(&events))
+        } else if format == "tlv" {
+            Ok(list_events_tlv(&events))
+        } else {
+            Err((StatusCode::BAD_REQUEST, "Invalid format".into()))
+        }
+    } else {
+        Ok(list_events_json(&events))
+    }
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -318,4 +337,71 @@ fn now() -> u32 {
         .duration_since(SystemTime::UNIX_EPOCH)
         .unwrap()
         .as_secs() as u32
+}
+
+fn list_events_json(events: &Vec<OracleEventData>) -> Json<Value> {
+    Json(serde_json::to_value(events).unwrap())
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct HexEvent {
+    pub id: Option<u32>,
+    pub event_id: String,
+    pub event_maturity_epoch: u32,
+    pub announcement: String,
+    pub attestation: Option<String>,
+}
+
+fn list_events_hex(events: &Vec<OracleEventData>) -> Json<Value> {
+    let hex_events = events
+        .iter()
+        .map(|e| {
+            let attestation = assemble_attestation(e);
+            HexEvent {
+                id: e.id,
+                event_id: e.announcement.oracle_event.event_id.clone(),
+                event_maturity_epoch: e.announcement.oracle_event.event_maturity_epoch,
+                announcement: hex::encode(e.announcement.encode()),
+                attestation: attestation.map(|a| hex::encode(a.encode())),
+            }
+        })
+        .collect::<Vec<_>>();
+    Json(serde_json::to_value(hex_events).unwrap())
+}
+
+fn list_events_tlv(events: &Vec<OracleEventData>) -> Json<Value> {
+    let tlv_events = events
+        .iter()
+        .map(|e| {
+            let attestation = assemble_attestation(e);
+            HexEvent {
+                id: e.id,
+                event_id: e.announcement.oracle_event.event_id.clone(),
+                event_maturity_epoch: e.announcement.oracle_event.event_maturity_epoch,
+                announcement: {
+                    let mut bytes = Vec::new();
+                    write_as_tlv(&e.announcement, &mut bytes).unwrap();
+                    hex::encode(bytes)
+                },
+                attestation: attestation.map(|a| {
+                    let mut bytes = Vec::new();
+                    write_as_tlv(&a, &mut bytes).unwrap();
+                    hex::encode(bytes)
+                }),
+            }
+        })
+        .collect::<Vec<_>>();
+    Json(serde_json::to_value(tlv_events).unwrap())
+}
+
+fn assemble_attestation(e: &OracleEventData) -> Option<OracleAttestation> {
+    if e.signatures.is_empty() {
+        None
+    } else {
+        Some(OracleAttestation {
+            oracle_public_key: e.announcement.oracle_public_key,
+            signatures: e.signatures.iter().map(|x| x.1).collect(),
+            outcomes: e.signatures.iter().map(|x| x.0.clone()).collect(),
+        })
+    }
 }
