@@ -7,8 +7,7 @@ use diesel::PgConnection;
 use diesel_migrations::MigrationHarness;
 use kormir::Oracle;
 use nostr_sdk::Client;
-use std::str::FromStr;
-
+use nostr::Keys;
 use crate::models::oracle_metadata::OracleMetadata;
 use crate::models::{PostgresStorage, MIGRATIONS};
 use crate::routes::*;
@@ -50,8 +49,9 @@ async fn main() -> anyhow::Result<()> {
         .expect("migrations could not run");
 
     let secp = Secp256k1::new();
-    let signing_key =
-        SecretKey::from_str(&std::env::var("KORMIR_KEY").expect("KORMIR_KEY must be set"))?;
+    let kormir_key = &std::env::var("KORMIR_KEY").expect("KORMIR_KEY must be set");
+    let secret_bytes = Keys::parse(kormir_key)?.secret_key()?.secret_bytes();
+    let signing_key = SecretKey::from_slice(&secret_bytes)?;
 
     let pubkey = signing_key.x_only_public_key(&secp).0;
 
@@ -78,7 +78,7 @@ async fn main() -> anyhow::Result<()> {
     )?;
 
     let relays = std::env::var("KORMIR_RELAYS")
-        .unwrap_or("wss://nostr.mutinywallet.com".to_string())
+        .unwrap_or("wss://relay.damus.io".to_string())
         .split(' ')
         .map(|s| s.to_string())
         .collect::<Vec<_>>();
