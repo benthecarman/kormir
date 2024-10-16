@@ -79,6 +79,16 @@ impl Event {
             .optional()?)
     }
 
+    pub fn get_by_event_id(
+        conn: &mut PgConnection,
+        event_id: String,
+    ) -> anyhow::Result<Option<Self>> {
+        Ok(events::table
+            .filter(events::name.eq(event_id))
+            .first::<Self>(conn)
+            .optional()?)
+    }
+
     pub fn list(conn: &mut PgConnection) -> anyhow::Result<Vec<Self>> {
         Ok(events::table.load::<Self>(conn)?)
     }

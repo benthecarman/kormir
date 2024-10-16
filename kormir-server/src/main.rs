@@ -97,6 +97,8 @@ async fn main() -> anyhow::Result<()> {
         .route("/health-check", get(health_check))
         .route("/pubkey", get(get_pubkey))
         .route("/list-events", get(list_events))
+        .route("/announcement/:event_id", get(get_oracle_announcement))
+        .route("/attestation/:event_id", get(get_oracle_attestation))
         .route("/create-enum", post(create_enum_event))
         .route("/sign-enum", post(sign_enum_event))
         .fallback(fallback)
