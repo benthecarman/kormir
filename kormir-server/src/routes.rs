@@ -1,9 +1,11 @@
 use crate::State;
+use axum::extract::Path;
 use axum::http::StatusCode;
 use axum::{Extension, Json};
 use bitcoin::key::XOnlyPublicKey;
-use kormir::storage::{OracleEventData, Storage};
 use kormir::lightning::util::ser::Writeable;
+use kormir::storage::{OracleEventData, Storage};
+use kormir::{OracleAnnouncement, OracleAttestation, Signature};
 use nostr::{EventId, JsonUtil};
 use serde::Deserialize;
 use std::time::SystemTime;
@@ -157,6 +159,86 @@ pub async fn sign_enum_event(
             Err((
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "Error signing enum event".to_string(),
+            ))
+        }
+    }
+}
+
+pub fn get_oracle_announcement_impl(
+    state: &State,
+    event_id: String,
+) -> anyhow::Result<OracleAnnouncement> {
+    if let Some(event) = state
+        .oracle
+        .storage
+        .get_oracle_event_by_event_id(event_id)?
+    {
+        Ok(event.announcement)
+    } else {
+        Err(anyhow::anyhow!(
+            "Announcement by event id is not found in storage."
+        ))
+    }
+}
+
+pub async fn get_oracle_announcement(
+    Extension(state): Extension<State>,
+    Path(event_id): Path<String>,
+) -> Result<Json<OracleAnnouncement>, (StatusCode, String)> {
+    match crate::routes::get_oracle_announcement_impl(&state, event_id) {
+        Ok(ann) => Ok(Json(ann)),
+        Err(e) => {
+            eprintln!("Error getting announcement by event_id. {:?}", e);
+            Err((
+                StatusCode::NOT_FOUND,
+                "Could not find announcement from event_id.".to_string(),
+            ))
+        }
+    }
+}
+
+pub fn get_oracle_attestation_impl(
+    state: &State,
+    event_id: String,
+) -> anyhow::Result<OracleAttestation> {
+    let Some(event) = state
+        .oracle
+        .storage
+        .get_oracle_event_by_event_id(event_id)?
+    else {
+        return Err(anyhow::anyhow!(
+            "Announcement by event id is not found in storage."
+        ));
+    };
+
+    if event.signatures.is_empty() {
+        return Err(anyhow::anyhow!("Attestation not signed."));
+    }
+
+    let (outcomes, signatures): (Vec<String>, Vec<Signature>) = event
+        .signatures
+        .iter()
+        .map(|(outcome, signature)| (outcome.clone(), signature.clone()))
+        .unzip();
+
+    Ok(OracleAttestation {
+        oracle_public_key: state.oracle.public_key(),
+        signatures,
+        outcomes,
+    })
+}
+
+pub async fn get_oracle_attestation(
+    Extension(state): Extension<State>,
+    Path(event_id): Path<String>,
+) -> Result<Json<OracleAttestation>, (StatusCode, String)> {
+    match crate::routes::get_oracle_attestation_impl(&state, event_id) {
+        Ok(att) => Ok(Json(att)),
+        Err(e) => {
+            eprintln!("Error getting attestation by event_id. {:?}", e);
+            Err((
+                StatusCode::NOT_FOUND,
+                "Could not find attestation from event_id.".to_string(),
             ))
         }
     }
