@@ -6,7 +6,7 @@ use bitcoin::key::XOnlyPublicKey;
 use dlc_messages::oracle_msgs::OracleAttestation;
 use dlc_messages::ser_impls::write_as_tlv;
 use kormir::storage::{OracleEventData, Storage};
-use lightning::util::ser::Writeable;
+use kormir::lightning::util::ser::Writeable;
 use nostr::{EventId, JsonUtil};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
