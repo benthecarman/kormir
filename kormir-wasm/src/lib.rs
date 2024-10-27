@@ -71,9 +71,7 @@ impl Kormir {
         storage
             .save_to_indexed_db(
                 NSEC_KEY,
-                hex::encode(nsec.secret_key()
-                    .expect("just imported")
-                    .secret_bytes()),
+                hex::encode(nsec.secret_key().expect("just imported").secret_bytes()),
             )
             .await?;
 

@@ -8,8 +8,8 @@ use diesel::r2d2::{ConnectionManager, Pool};
 use diesel_migrations::{embed_migrations, EmbeddedMigrations};
 use dlc_messages::oracle_msgs::{EventDescriptor, OracleAnnouncement};
 use kormir::error::Error;
-use kormir::storage::{OracleEventData, Storage};
 use kormir::lightning::util::ser::Writeable;
+use kormir::storage::{OracleEventData, Storage};
 use nostr::EventId;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU32, Ordering};
@@ -65,7 +65,8 @@ impl PostgresStorage {
                     .flat_map(|nonce| nonce.outcome_and_sig())
                     .collect();
 
-                let announcement_event_id = event.announcement_event_id().map(|ann| ann.to_string()); 
+                let announcement_event_id =
+                    event.announcement_event_id().map(|ann| ann.to_string());
                 let attestation_event_id = event.attestation_event_id().map(|att| att.to_string());
 
                 let data = OracleEventData {

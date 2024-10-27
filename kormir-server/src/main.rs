@@ -1,3 +1,6 @@
+use crate::models::oracle_metadata::OracleMetadata;
+use crate::models::{PostgresStorage, MIGRATIONS};
+use crate::routes::*;
 use axum::http::{StatusCode, Uri};
 use axum::routing::{get, post};
 use axum::{Extension, Router};
@@ -6,11 +9,8 @@ use diesel::r2d2::{ConnectionManager, Pool};
 use diesel::PgConnection;
 use diesel_migrations::MigrationHarness;
 use kormir::Oracle;
-use nostr_sdk::Client;
 use nostr::Keys;
-use crate::models::oracle_metadata::OracleMetadata;
-use crate::models::{PostgresStorage, MIGRATIONS};
-use crate::routes::*;
+use nostr_sdk::Client;
 
 mod models;
 mod routes;

@@ -109,7 +109,11 @@ impl From<OracleAttestation> for Attestation {
     fn from(value: OracleAttestation) -> Self {
         Self {
             oracle_public_key: hex::encode(value.oracle_public_key.serialize()),
-            signatures: value.signatures.iter().map(|x| hex::encode(x.encode())).collect(),
+            signatures: value
+                .signatures
+                .iter()
+                .map(|x| hex::encode(x.encode()))
+                .collect(),
             outcomes: value.outcomes,
         }
     }
