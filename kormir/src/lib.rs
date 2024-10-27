@@ -214,7 +214,6 @@ mod test {
     use super::*;
     use crate::storage::MemoryStorage;
     use bitcoin::secp256k1::rand::{thread_rng, Rng};
-    use bitcoin::Network;
 
     fn create_oracle() -> Oracle<MemoryStorage> {
         let mut seed: [u8; 64] = [0; 64];

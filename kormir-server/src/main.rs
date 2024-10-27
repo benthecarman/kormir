@@ -83,7 +83,7 @@ async fn main() -> anyhow::Result<()> {
         .map(|s| s.to_string())
         .collect::<Vec<_>>();
 
-    let client = Client::new(&oracle.nostr_keys());
+    let client = Client::new(oracle.nostr_keys());
     client.add_relays(relays).await?;
     client.connect().await;
 
