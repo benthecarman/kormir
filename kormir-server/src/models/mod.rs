@@ -88,6 +88,43 @@ impl PostgresStorage {
         .map_err(|_| Error::StorageFailure)
     }
 
+    pub fn get_oracle_event_by_event_id(
+        &self,
+        event_id: String,
+    ) -> anyhow::Result<Option<OracleEventData>> {
+        let mut conn = self.db_pool.get().map_err(|_| Error::StorageFailure)?;
+        let Some(event) = Event::get_by_event_id(&mut conn, event_id)? else {
+            return Ok(None);
+        };
+        let event_nonces = EventNonce::get_by_event_id(&mut conn, event.id)?;
+
+        let indexes = event_nonces
+            .iter()
+            .map(|nonce| nonce.index as u32)
+            .collect::<Vec<_>>();
+
+        let signatures = event_nonces
+            .into_iter()
+            .flat_map(|nonce| nonce.outcome_and_sig())
+            .collect();
+
+        let announcement_event_id = event.announcement_event_id().map(|ann| ann.to_string());
+        let attestation_event_id = event.attestation_event_id().map(|att| att.to_string());
+
+        Ok(Some(OracleEventData {
+            id: Some(event.id as u32),
+            announcement: OracleAnnouncement {
+                announcement_signature: event.announcement_signature(),
+                oracle_public_key: self.oracle_public_key,
+                oracle_event: event.oracle_event(),
+            },
+            indexes,
+            signatures,
+            announcement_event_id,
+            attestation_event_id,
+        }))
+    }
+
     pub async fn add_announcement_event_id(&self, id: u32, event_id: EventId) -> Result<(), Error> {
         let mut conn = self.db_pool.get().map_err(|_| Error::StorageFailure)?;
         let id = id as i32;
@@ -158,9 +195,8 @@ impl Storage for PostgresStorage {
             let new_event_nonces = indexes
                 .into_iter()
                 .zip(announcement.oracle_event.oracle_nonces)
-                .enumerate()
-                .map(|(index, (id, nonce))| NewEventNonce {
-                    id: id as i32,
+                .map(|(index, nonce)| NewEventNonce {
+                    id: index as i32,
                     event_id,
                     index: index as i32,
                     nonce: nonce.serialize().to_vec(),
