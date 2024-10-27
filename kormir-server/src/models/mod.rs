@@ -158,9 +158,8 @@ impl Storage for PostgresStorage {
             let new_event_nonces = indexes
                 .into_iter()
                 .zip(announcement.oracle_event.oracle_nonces)
-                .enumerate()
-                .map(|(index, (id, nonce))| NewEventNonce {
-                    id: id as i32,
+                .map(|(index, nonce)| NewEventNonce {
+                    id: index as i32,
                     event_id,
                     index: index as i32,
                     nonce: nonce.serialize().to_vec(),

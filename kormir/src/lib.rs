@@ -170,7 +170,9 @@ impl<S: Storage> Oracle<S> {
         );
 
         // verify our nonce is the same as the one in the announcement
-        debug_assert!(sig.encode()[..32] == nonce_key.x_only_public_key(&self.secp).0.serialize());
+        debug_assert!(
+            sig.encode()[..32] == data.announcement.oracle_event.oracle_nonces[0].serialize()
+        );
 
         // verify our signature
         if self
