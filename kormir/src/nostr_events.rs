@@ -1,5 +1,3 @@
-#![cfg(feature = "nostr")]
-
 use dlc_messages::oracle_msgs::{OracleAnnouncement, OracleAttestation};
 use lightning::util::ser::Writeable;
 use nostr::event::builder::Error;

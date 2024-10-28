@@ -7,11 +7,11 @@ pub mod storage;
 
 use crate::error::Error;
 use crate::storage::Storage;
-use bitcoin::hashes::{sha256, Hash};
-use bitcoin::secp256k1::{All, Message, Secp256k1, SecretKey};
 use bitcoin::bip32::{ChildNumber, DerivationPath, Xpriv};
-use bitcoin::Network;
+use bitcoin::hashes::{sha256, Hash};
 use bitcoin::key::XOnlyPublicKey;
+use bitcoin::secp256k1::{All, Message, Secp256k1, SecretKey};
+use bitcoin::Network;
 use secp256k1_zkp::Keypair;
 use std::collections::HashMap;
 use std::str::FromStr;
@@ -59,8 +59,8 @@ impl<S: Storage> Oracle<S> {
         let secp = Secp256k1::new();
 
         let xpriv_bytes = sha256::Hash::hash(&signing_key.secret_bytes()).to_byte_array();
-        let nonce_xpriv = Xpriv::new_master(Network::Bitcoin, &xpriv_bytes)
-            .map_err(|_| Error::Internal)?;
+        let nonce_xpriv =
+            Xpriv::new_master(Network::Bitcoin, &xpriv_bytes).map_err(|_| Error::Internal)?;
 
         Ok(Self {
             storage,
@@ -198,10 +198,7 @@ impl<S: Storage> Oracle<S> {
     }
 }
 
-pub fn derive_signing_key(
-    secp: &Secp256k1<All>,
-    xpriv: Xpriv,
-) -> Result<SecretKey, Error> {
+pub fn derive_signing_key(secp: &Secp256k1<All>, xpriv: Xpriv) -> Result<SecretKey, Error> {
     let signing_key = xpriv
         .derive_priv(
             secp,
@@ -217,7 +214,6 @@ mod test {
     use super::*;
     use crate::storage::MemoryStorage;
     use bitcoin::secp256k1::rand::{thread_rng, Rng};
-    use bitcoin::Network;
 
     fn create_oracle() -> Oracle<MemoryStorage> {
         let mut seed: [u8; 64] = [0; 64];

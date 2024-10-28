@@ -218,7 +218,7 @@ pub fn get_oracle_attestation_impl(
     let (outcomes, signatures): (Vec<String>, Vec<Signature>) = event
         .signatures
         .iter()
-        .map(|(outcome, signature)| (outcome.clone(), signature.clone()))
+        .map(|(outcome, signature)| (outcome.clone(), signature))
         .unzip();
 
     Ok(OracleAttestation {

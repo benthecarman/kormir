@@ -51,7 +51,7 @@ impl Kormir {
 
         let oracle = Oracle::from_signing_key(storage.clone(), nsec)?;
 
-        let client = Client::new(&oracle.nostr_keys());
+        let client = Client::new(oracle.nostr_keys());
         client.add_relays(relays.iter().map(|r| r.as_str())).await?;
         client.connect().await;
 
@@ -71,9 +71,7 @@ impl Kormir {
         storage
             .save_to_indexed_db(
                 NSEC_KEY,
-                hex::encode(nsec.secret_key()
-                    .expect("just imported")
-                    .secret_bytes()),
+                hex::encode(nsec.secret_key().expect("just imported").secret_bytes()),
             )
             .await?;
 
