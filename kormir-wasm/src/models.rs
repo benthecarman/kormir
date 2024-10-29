@@ -191,7 +191,7 @@ impl From<(u32, OracleEventData)> for EventData {
                 // todo proper sorting for non-enum events
                 let attestation = OracleAttestation {
                     oracle_public_key: value.announcement.oracle_public_key,
-                    signatures: value.signatures.iter().map(|x| x.1.clone()).collect(),
+                    signatures: value.signatures.iter().map(|x| x.1).collect(),
                     outcomes: value.signatures.iter().map(|x| x.0.clone()).collect(),
                 };
                 let attestation = hex::encode(attestation.encode());
@@ -209,7 +209,7 @@ impl From<(u32, OracleEventData)> for EventData {
                         if outcome_str.starts_with('+') {
                             outcome_str.remove(0);
                         }
-                        let outcome = i64::from_str_radix(&*outcome_str, 2).unwrap();
+                        let outcome = i64::from_str_radix(&outcome_str, 2).unwrap();
                         outcome.to_string()
                     }
                 };
