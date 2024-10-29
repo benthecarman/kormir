@@ -1,0 +1,140 @@
+name: Tests
+
+on:
+  pull_request:
+
+jobs:
+  check_formatting:
+    name: Check Formatting
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: cargo-${{ runner.os }}-formatting-${{ hashFiles('**/Cargo.toml', '**/Cargo.lock') }}
+          restore-keys: |
+            cargo-${{ runner.os }}-formatting
+            cargo-${{ runner.os }}-
+
+      - name: Install nightly toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          components: rustfmt
+          profile: minimal
+
+      - name: Check formatting
+        run: |
+          cargo fmt -- --check
+
+      - name: Check docs
+        run: cargo doc
+
+  wasm:
+    name: Build WASM binary
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly-2023-10-24
+          target: wasm32-unknown-unknown
+          override: true
+          profile: minimal
+
+      - uses: jetli/wasm-pack-action@v0.4.0
+        with:
+          version: 'v0.12.1'
+
+      - uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: cargo-${{ runner.os }}-wasn-tests-${{ hashFiles('**/Cargo.toml', '**/Cargo.lock') }}
+          restore-keys: |
+            cargo-${{ runner.os }}-wasn-tests-
+            cargo-${{ runner.os }}-
+
+      - name: Build wasm package
+        env:
+          RUSTUP_TOOLCHAIN: nightly-2023-10-24
+        run: wasm-pack build ./kormir-wasm --release --target web
+
+  wasm_checks:
+    name: Rust Wasm Checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly-2023-10-24
+          components: clippy
+          target: wasm32-unknown-unknown
+          override: true
+          profile: minimal
+
+      - name: Setup trunk
+        uses: jetli/trunk-action@v0.1.0
+        with:
+          version: 'latest'
+
+      - uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: cargo-${{ runner.os }}-rust-wasm-checks-${{ hashFiles('**/Cargo.toml', '**/Cargo.lock') }}
+          restore-keys: |
+            cargo-${{ runner.os }}-rust-wasm-checks-
+            cargo-${{ runner.os }}-
+
+      - name: Check clippy kormir-wasm
+        run: cargo clippy --all-features --tests --package kormir-wasm -- -D warnings
+
+  core_tests:
+    name: Core Tests on Linux
+    timeout-minutes: 60
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+          profile: minimal
+          components: clippy
+
+      - uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: cargo-${{ runner.os }}-core-tests-linux-${{ hashFiles('**/Cargo.toml', '**/Cargo.lock') }}
+          restore-keys: |
+            cargo-${{ runner.os }}-core-tests-linux-
+            cargo-${{ runner.os }}-
+
+      - name: Run cargo clippy
+        run: cargo clippy --all-features --tests  -- -D warnings
+
+      - name: Run cargo test
+        run: cargo test
+
+      - name: Run cargo build
+        run: cargo build --all-features
