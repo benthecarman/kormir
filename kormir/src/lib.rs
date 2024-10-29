@@ -326,7 +326,8 @@ impl<S: Storage> Oracle<S> {
                 );
                 // verify our nonce is the same as the one in the announcement
                 debug_assert!(
-                    sig.encode()[..32] == data.announcement.oracle_event.oracle_nonces[idx].serialize()
+                    sig.encode()[..32]
+                        == data.announcement.oracle_event.oracle_nonces[idx].serialize()
                 );
                 // verify our signature
                 if self
@@ -584,10 +585,12 @@ mod test {
         let attestation = oracle.sign_numeric_event(id, 0x5555).await.unwrap();
         assert_eq!(
             attestation.outcomes,
-            vec!["+", "0", "1", "0", "1", "0", "1", "0", "1", "0", "1", "0", "1", "0", "1", "0", "1"]
-                .iter()
-                .map(|x| x.to_string())
-                .collect::<Vec<_>>()
+            vec![
+                "+", "0", "1", "0", "1", "0", "1", "0", "1", "0", "1", "0", "1", "0", "1", "0", "1"
+            ]
+            .iter()
+            .map(|x| x.to_string())
+            .collect::<Vec<_>>()
         );
         assert_eq!(attestation.oracle_public_key, oracle.public_key());
         assert_eq!(attestation.signatures.len(), 16 + 1);
@@ -634,10 +637,12 @@ mod test {
         let attestation = oracle.sign_numeric_event(id, -0x5555).await.unwrap();
         assert_eq!(
             attestation.outcomes,
-            vec!["-", "0", "1", "0", "1", "0", "1", "0", "1", "0", "1", "0", "1", "0", "1", "0", "1"]
-                .iter()
-                .map(|x| x.to_string())
-                .collect::<Vec<_>>()
+            vec![
+                "-", "0", "1", "0", "1", "0", "1", "0", "1", "0", "1", "0", "1", "0", "1", "0", "1"
+            ]
+            .iter()
+            .map(|x| x.to_string())
+            .collect::<Vec<_>>()
         );
         assert_eq!(attestation.oracle_public_key, oracle.public_key());
         assert_eq!(attestation.signatures.len(), 16 + 1);
