@@ -433,7 +433,7 @@ struct HexEvent {
     pub attestation: Option<String>,
 }
 
-fn list_events_hex(events: &Vec<OracleEventData>) -> Json<Value> {
+fn list_events_hex(events: &[OracleEventData]) -> Json<Value> {
     let hex_events = events
         .iter()
         .map(|e| {
@@ -450,7 +450,7 @@ fn list_events_hex(events: &Vec<OracleEventData>) -> Json<Value> {
     Json(serde_json::to_value(hex_events).unwrap())
 }
 
-fn list_events_tlv(events: &Vec<OracleEventData>) -> Json<Value> {
+fn list_events_tlv(events: &[OracleEventData]) -> Json<Value> {
     let tlv_events = events
         .iter()
         .map(|e| {
