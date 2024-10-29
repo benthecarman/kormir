@@ -284,7 +284,7 @@ impl<S: Storage> Oracle<S> {
 
         let digits = format!(
             "{:0width$b}",
-            outcome,
+            outcome.abs(),
             width = descriptor.nb_digits as usize
         )
         .chars()
@@ -506,6 +506,142 @@ mod test {
         assert_eq!(attestation.oracle_public_key, oracle.public_key());
         assert_eq!(attestation.signatures.len(), 16);
         assert_eq!(attestation.outcomes.len(), 16);
+
+        for i in 0..attestation.signatures.len() {
+            let sig = attestation.signatures[i];
+
+            // check first 32 bytes of signature is expected nonce
+            let expected_nonce = ann.oracle_event.oracle_nonces[i].serialize();
+            let bytes = sig.encode();
+            let (rx, _sig) = bytes.split_at(32);
+
+            assert_eq!(rx, expected_nonce)
+        }
+
+        println!("{}", hex::encode(attestation.encode()));
+    }
+
+    #[ignore]
+    #[tokio::test]
+    async fn test_create_signed_numeric_event() {
+        let oracle = create_oracle();
+
+        let event_id = "test_signed_numeric".to_string();
+        let num_digits = 20;
+
+        let event_maturity_epoch = 100;
+        let (_, ann) = oracle
+            .create_numeric_event(
+                event_id.clone(),
+                num_digits,
+                true,
+                0,
+                "m/s".into(),
+                event_maturity_epoch,
+            )
+            .await
+            .unwrap();
+
+        assert!(ann.validate(&oracle.secp).is_ok());
+        assert_eq!(ann.oracle_event.event_id, event_id);
+        assert_eq!(ann.oracle_event.event_maturity_epoch, event_maturity_epoch);
+        assert_eq!(
+            ann.oracle_event.event_descriptor,
+            EventDescriptor::DigitDecompositionEvent(DigitDecompositionEventDescriptor {
+                base: 2,
+                is_signed: true,
+                unit: "m/s".into(),
+                precision: 0,
+                nb_digits: 20,
+            })
+        );
+    }
+
+    #[ignore]
+    #[tokio::test]
+    async fn test_sign_signed_positive_numeric_event() {
+        let oracle = create_oracle();
+
+        let event_id = "test_signed_numeric".to_string();
+        let num_digits = 16;
+
+        let event_maturity_epoch = 100;
+        let (id, ann) = oracle
+            .create_numeric_event(
+                event_id.clone(),
+                num_digits,
+                true,
+                0,
+                "m/s".into(),
+                event_maturity_epoch,
+            )
+            .await
+            .unwrap();
+
+        println!("{}", hex::encode(ann.encode()));
+        let res = oracle.sign_numeric_event(id, 0x55555).await;
+        assert!(res.is_err());
+        let attestation = oracle.sign_numeric_event(id, 0x5555).await.unwrap();
+        assert_eq!(
+            attestation.outcomes,
+            vec!["+", "0", "1", "0", "1", "0", "1", "0", "1", "0", "1", "0", "1", "0", "1", "0", "1"]
+                .iter()
+                .map(|x| x.to_string())
+                .collect::<Vec<_>>()
+        );
+        assert_eq!(attestation.oracle_public_key, oracle.public_key());
+        assert_eq!(attestation.signatures.len(), 16 + 1);
+        assert_eq!(attestation.outcomes.len(), 16 + 1);
+
+        for i in 0..attestation.signatures.len() {
+            let sig = attestation.signatures[i];
+
+            // check first 32 bytes of signature is expected nonce
+            let expected_nonce = ann.oracle_event.oracle_nonces[i].serialize();
+            let bytes = sig.encode();
+            let (rx, _sig) = bytes.split_at(32);
+
+            assert_eq!(rx, expected_nonce)
+        }
+
+        println!("{}", hex::encode(attestation.encode()));
+    }
+
+    #[ignore]
+    #[tokio::test]
+    async fn test_sign_signed_negative_numeric_event() {
+        let oracle = create_oracle();
+
+        let event_id = "test_signed_numeric".to_string();
+        let num_digits = 16;
+
+        let event_maturity_epoch = 100;
+        let (id, ann) = oracle
+            .create_numeric_event(
+                event_id.clone(),
+                num_digits,
+                true,
+                0,
+                "m/s".into(),
+                event_maturity_epoch,
+            )
+            .await
+            .unwrap();
+
+        println!("{}", hex::encode(ann.encode()));
+        let res = oracle.sign_numeric_event(id, -0x55555).await;
+        assert!(res.is_err());
+        let attestation = oracle.sign_numeric_event(id, -0x5555).await.unwrap();
+        assert_eq!(
+            attestation.outcomes,
+            vec!["-", "0", "1", "0", "1", "0", "1", "0", "1", "0", "1", "0", "1", "0", "1", "0", "1"]
+                .iter()
+                .map(|x| x.to_string())
+                .collect::<Vec<_>>()
+        );
+        assert_eq!(attestation.oracle_public_key, oracle.public_key());
+        assert_eq!(attestation.signatures.len(), 16 + 1);
+        assert_eq!(attestation.outcomes.len(), 16 + 1);
 
         for i in 0..attestation.signatures.len() {
             let sig = attestation.signatures[i];
