@@ -7,11 +7,11 @@ pub mod storage;
 
 use crate::error::Error;
 use crate::storage::Storage;
-use bitcoin::hashes::{sha256, Hash};
-use bitcoin::secp256k1::{All, Message, Secp256k1, SecretKey};
 use bitcoin::bip32::{ChildNumber, DerivationPath, Xpriv};
-use bitcoin::Network;
+use bitcoin::hashes::{sha256, Hash};
 use bitcoin::key::XOnlyPublicKey;
+use bitcoin::secp256k1::{All, Message, Secp256k1, SecretKey};
+use bitcoin::Network;
 use secp256k1_zkp::Keypair;
 use std::str::FromStr;
 
@@ -314,7 +314,8 @@ impl<S: Storage> Oracle<S> {
         let signatures = outcomes
             .iter()
             .zip(nonce_keys)
-            .map(|(outcome, nonce_key)| {
+            .enumerate()
+            .map(|(idx, (outcome, nonce_key))| {
                 let hash = sha256::Hash::hash(outcome.as_bytes());
                 let msg = Message::from_digest(hash.to_byte_array());
                 let sig = dlc::secp_utils::schnorrsig_sign_with_nonce(
@@ -325,7 +326,7 @@ impl<S: Storage> Oracle<S> {
                 );
                 // verify our nonce is the same as the one in the announcement
                 debug_assert!(
-                    sig.encode()[..32] == nonce_key.x_only_public_key(&self.secp).0.serialize()
+                    sig.encode()[..32] == data.announcement.oracle_event.oracle_nonces[idx].serialize()
                 );
                 // verify our signature
                 if self
