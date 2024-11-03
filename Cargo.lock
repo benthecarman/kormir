@@ -1125,7 +1125,7 @@ dependencies = [
 
 [[package]]
 name = "kormir"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "base64 0.13.1",
  "bitcoin 0.32.2",
