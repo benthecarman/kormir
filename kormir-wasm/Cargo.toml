@@ -6,14 +6,14 @@ authors = ["benthecarman <ben@mutinywallet.com>"]
 description = "DLC Oracle WASM SDK"
 license = "MIT"
 documentation = "https://docs.rs/kormir"
-homepage = "https://github.com/benthecarman/kormir"
-repository = "https://github.com/benthecarman/kormir"
+homepage = "https://github.com/bennyhodl/kormir"
+repository = "https://github.com/bennyhodl/kormir"
 
 [lib]
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-kormir = { path = "../kormir", version = "0.3.0", features = ["nostr"] }
+kormir = { path = "../kormir", version = "0.3.1", features = ["nostr"] }
 
 anyhow = "1.0.75"
 bip39 = "2.0.0"
