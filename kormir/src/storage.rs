@@ -32,6 +32,7 @@ pub trait Storage {
 
 /// Data saved for an oracle announcement
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct OracleEventData {
     pub id: Option<u32>,
     pub announcement: OracleAnnouncement,
