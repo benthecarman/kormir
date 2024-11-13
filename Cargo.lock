@@ -617,8 +617,7 @@ dependencies = [
 [[package]]
 name = "dlc"
 version = "0.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "abff3067edae81f323b5e9a7516c1bc72bbc233025c273926e1e1a51cafc7ed6"
+source = "git+https://github.com/bennyhodl/rust-dlc?branch=async#1b979ccab1a4823747f358c04ed0ba66d9eb5019"
 dependencies = [
  "bitcoin 0.32.2",
  "miniscript",
@@ -630,8 +629,7 @@ dependencies = [
 [[package]]
 name = "dlc-messages"
 version = "0.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1c08c03b1f6344424565a3191d66990bd93a94c71fb9f30dbf2dfeb80ff1d6a9"
+source = "git+https://github.com/bennyhodl/rust-dlc?branch=async#1b979ccab1a4823747f358c04ed0ba66d9eb5019"
 dependencies = [
  "bitcoin 0.32.2",
  "dlc",
