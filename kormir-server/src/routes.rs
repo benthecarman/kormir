@@ -4,7 +4,7 @@ use axum::extract::Query;
 use axum::http::StatusCode;
 use axum::{Extension, Json};
 use bitcoin::key::XOnlyPublicKey;
-use dlc_messages::ser_impls::write_as_tlv;
+use ddk_messages::ser_impls::write_as_tlv;
 use kormir::lightning::util::ser::Writeable;
 use kormir::storage::{OracleEventData, Storage};
 use kormir::{OracleAnnouncement, OracleAttestation, Signature};
@@ -310,7 +310,7 @@ pub fn get_oracle_attestation_impl(
     let Some(event) = state
         .oracle
         .storage
-        .get_oracle_event_by_event_id(event_id)?
+        .get_oracle_event_by_event_id(event_id.clone())?
     else {
         return Err(anyhow::anyhow!(
             "Announcement by event id is not found in storage."
@@ -328,6 +328,7 @@ pub fn get_oracle_attestation_impl(
         .unzip();
 
     Ok(OracleAttestation {
+        event_id,
         oracle_public_key: state.oracle.public_key(),
         signatures,
         outcomes,
@@ -480,6 +481,7 @@ fn assemble_attestation(e: &OracleEventData) -> Option<OracleAttestation> {
         None
     } else {
         Some(OracleAttestation {
+            event_id: e.announcement.oracle_event.event_id.clone(),
             oracle_public_key: e.announcement.oracle_public_key,
             signatures: e.signatures.iter().map(|x| x.1).collect(),
             outcomes: e.signatures.iter().map(|x| x.0.clone()).collect(),

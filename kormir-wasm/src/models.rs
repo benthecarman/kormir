@@ -190,6 +190,7 @@ impl From<(u32, OracleEventData)> for EventData {
             _ => {
                 // todo proper sorting for non-enum events
                 let attestation = OracleAttestation {
+                    event_id: value.announcement.oracle_event.event_id.clone(),
                     oracle_public_key: value.announcement.oracle_public_key,
                     signatures: value.signatures.iter().map(|x| x.1).collect(),
                     outcomes: value.signatures.iter().map(|x| x.0.clone()).collect(),

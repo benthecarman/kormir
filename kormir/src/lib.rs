@@ -17,8 +17,8 @@ use std::str::FromStr;
 
 pub use bitcoin;
 pub use bitcoin::secp256k1::schnorr::Signature;
-use dlc_messages::oracle_msgs::DigitDecompositionEventDescriptor;
-pub use dlc_messages::oracle_msgs::{
+use ddk_messages::oracle_msgs::DigitDecompositionEventDescriptor;
+pub use ddk_messages::oracle_msgs::{
     EnumEventDescriptor, EventDescriptor, OracleAnnouncement, OracleAttestation, OracleEvent,
 };
 pub use lightning;
@@ -162,7 +162,7 @@ impl<S: Storage> Oracle<S> {
         let hash = sha256::Hash::hash(outcome.as_bytes());
         let msg = Message::from_digest(hash.to_byte_array());
 
-        let sig = dlc::secp_utils::schnorrsig_sign_with_nonce(
+        let sig = ddk_dlc::secp_utils::schnorrsig_sign_with_nonce(
             &self.secp,
             &msg,
             &self.key_pair,
@@ -188,6 +188,7 @@ impl<S: Storage> Oracle<S> {
         self.storage.save_signatures(id, sigs).await?;
 
         let attestation = OracleAttestation {
+            event_id: data.announcement.oracle_event.event_id,
             oracle_public_key: self.public_key(),
             signatures: vec![sig],
             outcomes: vec![outcome],
@@ -318,7 +319,7 @@ impl<S: Storage> Oracle<S> {
             .map(|(idx, (outcome, nonce_key))| {
                 let hash = sha256::Hash::hash(outcome.as_bytes());
                 let msg = Message::from_digest(hash.to_byte_array());
-                let sig = dlc::secp_utils::schnorrsig_sign_with_nonce(
+                let sig = ddk_dlc::secp_utils::schnorrsig_sign_with_nonce(
                     &self.secp,
                     &msg,
                     &self.key_pair,
@@ -345,6 +346,7 @@ impl<S: Storage> Oracle<S> {
         self.storage.save_signatures(id, sigs).await?;
 
         let attestation = OracleAttestation {
+            event_id: data.announcement.oracle_event.event_id,
             oracle_public_key: self.public_key(),
             signatures,
             outcomes,
