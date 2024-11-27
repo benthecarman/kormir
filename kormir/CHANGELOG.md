@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.2](https://github.com/bennyhodl/kormir/compare/kormir-v0.3.1...kormir-v0.3.2) - 2024-11-27
+
+### Other
+
+- use ddk versions of rust-dlc
+- async ddk
+
 ## [0.3.1](https://github.com/bennyhodl/kormir/compare/kormir-v0.3.0...kormir-v0.3.1) - 2024-11-03
 
 ### Other
