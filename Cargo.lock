@@ -553,6 +553,32 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7e962a19be5cfc3f3bf6dd8f61eb50107f356ad6270fbb3ed41476571db78be5"
 
 [[package]]
+name = "ddk-dlc"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "89ad5d59b454f683860a3c857fd1b5c873421808b95c8cb12d7aa7285fb02fd4"
+dependencies = [
+ "bitcoin 0.32.2",
+ "miniscript",
+ "secp256k1-sys 0.10.0",
+ "secp256k1-zkp",
+ "serde",
+]
+
+[[package]]
+name = "ddk-messages"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ddc7c2985d667a61cd05b552e7608ddb48c42b91225ee88378266bfcb3c0b390"
+dependencies = [
+ "bitcoin 0.32.2",
+ "ddk-dlc",
+ "lightning",
+ "secp256k1-zkp",
+ "serde",
+]
+
+[[package]]
 name = "diesel"
 version = "2.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -612,30 +638,6 @@ dependencies = [
  "block-buffer",
  "crypto-common",
  "subtle",
-]
-
-[[package]]
-name = "dlc"
-version = "0.7.0"
-source = "git+https://github.com/bennyhodl/rust-dlc?branch=async#1b979ccab1a4823747f358c04ed0ba66d9eb5019"
-dependencies = [
- "bitcoin 0.32.2",
- "miniscript",
- "secp256k1-sys 0.10.0",
- "secp256k1-zkp",
- "serde",
-]
-
-[[package]]
-name = "dlc-messages"
-version = "0.7.0"
-source = "git+https://github.com/bennyhodl/rust-dlc?branch=async#1b979ccab1a4823747f358c04ed0ba66d9eb5019"
-dependencies = [
- "bitcoin 0.32.2",
- "dlc",
- "lightning",
- "secp256k1-zkp",
- "serde",
 ]
 
 [[package]]
@@ -1127,8 +1129,8 @@ version = "0.3.1"
 dependencies = [
  "base64 0.13.1",
  "bitcoin 0.32.2",
- "dlc",
- "dlc-messages",
+ "ddk-dlc",
+ "ddk-messages",
  "hex",
  "lightning",
  "log",
@@ -1146,9 +1148,9 @@ dependencies = [
  "axum",
  "bitcoin 0.32.2",
  "chrono",
+ "ddk-messages",
  "diesel",
  "diesel_migrations",
- "dlc-messages",
  "dotenv",
  "futures",
  "hex",
