@@ -122,7 +122,7 @@ impl From<OracleAttestation> for Attestation {
 #[wasm_bindgen]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EventData {
-    pub id: u32,
+    event_id: String,
     announcement: String,
     attestation: Option<String>,
     pub event_maturity_epoch: u32,
@@ -176,8 +176,8 @@ impl EventData {
     }
 }
 
-impl From<(u32, OracleEventData)> for EventData {
-    fn from((id, value): (u32, OracleEventData)) -> Self {
+impl From<(String, OracleEventData)> for EventData {
+    fn from((id, value): (String, OracleEventData)) -> Self {
         let outcomes = match &value.announcement.oracle_event.event_descriptor {
             EventDescriptor::EnumEvent(e) => e.outcomes.clone(),
             EventDescriptor::DigitDecompositionEvent(_) => {
@@ -219,7 +219,7 @@ impl From<(u32, OracleEventData)> for EventData {
         };
 
         EventData {
-            id,
+            event_id: id,
             announcement: hex::encode(value.announcement.encode()),
             attestation,
             event_maturity_epoch: value.announcement.oracle_event.event_maturity_epoch,
