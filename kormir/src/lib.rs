@@ -97,7 +97,7 @@ impl<S: Storage> Oracle<S> {
         event_id: String,
         outcomes: Vec<String>,
         event_maturity_epoch: u32,
-    ) -> Result<(u32, OracleAnnouncement), Error> {
+    ) -> Result<OracleAnnouncement, Error> {
         let indexes = self.storage.get_next_nonce_indexes(1).await?;
         let oracle_nonces = indexes
             .iter()
@@ -129,17 +129,17 @@ impl<S: Storage> Oracle<S> {
         };
         ann.validate(&self.secp).map_err(|_| Error::Internal)?;
 
-        let id = self.storage.save_announcement(ann.clone(), indexes).await?;
+        let _ = self.storage.save_announcement(ann.clone(), indexes).await?;
 
-        Ok((id, ann))
+        Ok(ann)
     }
 
     pub async fn sign_enum_event(
         &self,
-        id: u32,
+        event_id: String,
         outcome: String,
     ) -> Result<OracleAttestation, Error> {
-        let Some(data) = self.storage.get_event(id).await? else {
+        let Some(data) = self.storage.get_event(event_id.clone()).await? else {
             return Err(Error::NotFound);
         };
         if !data.signatures.is_empty() {
@@ -185,7 +185,9 @@ impl<S: Storage> Oracle<S> {
 
         let sigs = vec![(outcome.clone(), sig)];
 
-        self.storage.save_signatures(id, sigs).await?;
+        self.storage
+            .save_signatures(event_id.to_string(), sigs)
+            .await?;
 
         let attestation = OracleAttestation {
             event_id: data.announcement.oracle_event.event_id,
@@ -205,7 +207,7 @@ impl<S: Storage> Oracle<S> {
         precision: i32,
         unit: String,
         event_maturity_epoch: u32,
-    ) -> Result<(u32, OracleAnnouncement), Error> {
+    ) -> Result<OracleAnnouncement, Error> {
         if num_digits == 0 {
             return Err(Error::InvalidArgument);
         }
@@ -254,17 +256,17 @@ impl<S: Storage> Oracle<S> {
         };
         ann.validate(&self.secp).map_err(|_| Error::Internal)?;
 
-        let id = self.storage.save_announcement(ann.clone(), indexes).await?;
+        let _ = self.storage.save_announcement(ann.clone(), indexes).await?;
 
-        Ok((id, ann))
+        Ok(ann)
     }
 
     pub async fn sign_numeric_event(
         &self,
-        id: u32,
+        event_id: String,
         outcome: i64,
     ) -> Result<OracleAttestation, Error> {
-        let Some(data) = self.storage.get_event(id).await? else {
+        let Some(data) = self.storage.get_event(event_id.clone()).await? else {
             return Err(Error::NotFound);
         };
         if !data.signatures.is_empty() {
@@ -343,7 +345,7 @@ impl<S: Storage> Oracle<S> {
             })
             .collect::<Result<Vec<_>, Error>>()?;
 
-        self.storage.save_signatures(id, sigs).await?;
+        self.storage.save_signatures(event_id, sigs).await?;
 
         let attestation = OracleAttestation {
             event_id: data.announcement.oracle_event.event_id,
@@ -387,7 +389,7 @@ mod test {
         let event_id = "test".to_string();
         let outcomes = vec!["a".to_string(), "b".to_string()];
         let event_maturity_epoch = 100;
-        let (_, ann) = oracle
+        let ann = oracle
             .create_enum_event(event_id.clone(), outcomes.clone(), event_maturity_epoch)
             .await
             .unwrap();
@@ -412,14 +414,17 @@ mod test {
             .unwrap()
             .as_secs() as u32
             + 86400;
-        let (id, ann) = oracle
-            .create_enum_event(event_id, outcomes.clone(), event_maturity_epoch)
+        let ann = oracle
+            .create_enum_event(event_id.clone(), outcomes.clone(), event_maturity_epoch)
             .await
             .unwrap();
 
         println!("{}", hex::encode(ann.encode()));
 
-        let attestation = oracle.sign_enum_event(id, "a".to_string()).await.unwrap();
+        let attestation = oracle
+            .sign_enum_event(event_id, "a".to_string())
+            .await
+            .unwrap();
         assert!(attestation.outcomes.contains(&"a".to_string()));
         assert_eq!(attestation.oracle_public_key, oracle.public_key());
         assert_eq!(attestation.signatures.len(), 1);
@@ -444,7 +449,7 @@ mod test {
         let num_digits = 20;
 
         let event_maturity_epoch = 100;
-        let (_, ann) = oracle
+        let ann = oracle
             .create_numeric_event(
                 event_id.clone(),
                 num_digits,
@@ -479,7 +484,7 @@ mod test {
         let num_digits = 16;
 
         let event_maturity_epoch = 100;
-        let (id, ann) = oracle
+        let ann = oracle
             .create_numeric_event(
                 event_id.clone(),
                 num_digits,
@@ -492,9 +497,12 @@ mod test {
             .unwrap();
 
         println!("{}", hex::encode(ann.encode()));
-        let res = oracle.sign_numeric_event(id, 0x55555).await;
+        let res = oracle.sign_numeric_event(event_id.clone(), 0x55555).await;
         assert!(res.is_err());
-        let attestation = oracle.sign_numeric_event(id, 0x5555).await.unwrap();
+        let attestation = oracle
+            .sign_numeric_event(event_id.clone(), 0x5555)
+            .await
+            .unwrap();
         assert_eq!(
             attestation.outcomes,
             vec!["0", "1", "0", "1", "0", "1", "0", "1", "0", "1", "0", "1", "0", "1", "0", "1"]
@@ -520,7 +528,6 @@ mod test {
         println!("{}", hex::encode(attestation.encode()));
     }
 
-    #[ignore]
     #[tokio::test]
     async fn test_create_signed_numeric_event() {
         let oracle = create_oracle();
@@ -529,7 +536,7 @@ mod test {
         let num_digits = 20;
 
         let event_maturity_epoch = 100;
-        let (_, ann) = oracle
+        let ann = oracle
             .create_numeric_event(
                 event_id.clone(),
                 num_digits,
@@ -556,7 +563,6 @@ mod test {
         );
     }
 
-    #[ignore]
     #[tokio::test]
     async fn test_sign_signed_positive_numeric_event() {
         let oracle = create_oracle();
@@ -565,7 +571,7 @@ mod test {
         let num_digits = 16;
 
         let event_maturity_epoch = 100;
-        let (id, ann) = oracle
+        let ann = oracle
             .create_numeric_event(
                 event_id.clone(),
                 num_digits,
@@ -578,9 +584,9 @@ mod test {
             .unwrap();
 
         println!("{}", hex::encode(ann.encode()));
-        let res = oracle.sign_numeric_event(id, 0x55555).await;
+        let res = oracle.sign_numeric_event(event_id.clone(), 0x55555).await;
         assert!(res.is_err());
-        let attestation = oracle.sign_numeric_event(id, 0x5555).await.unwrap();
+        let attestation = oracle.sign_numeric_event(event_id, 0x5555).await.unwrap();
         assert_eq!(
             attestation.outcomes,
             vec![
@@ -608,7 +614,6 @@ mod test {
         println!("{}", hex::encode(attestation.encode()));
     }
 
-    #[ignore]
     #[tokio::test]
     async fn test_sign_signed_negative_numeric_event() {
         let oracle = create_oracle();
@@ -617,7 +622,7 @@ mod test {
         let num_digits = 16;
 
         let event_maturity_epoch = 100;
-        let (id, ann) = oracle
+        let ann = oracle
             .create_numeric_event(
                 event_id.clone(),
                 num_digits,
@@ -630,9 +635,9 @@ mod test {
             .unwrap();
 
         println!("{}", hex::encode(ann.encode()));
-        let res = oracle.sign_numeric_event(id, -0x55555).await;
+        let res = oracle.sign_numeric_event(event_id.clone(), -0x55555).await;
         assert!(res.is_err());
-        let attestation = oracle.sign_numeric_event(id, -0x5555).await.unwrap();
+        let attestation = oracle.sign_numeric_event(event_id, -0x5555).await.unwrap();
         assert_eq!(
             attestation.outcomes,
             vec![

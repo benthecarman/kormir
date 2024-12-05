@@ -18,10 +18,10 @@ use super::schema::events;
     Clone,
     PartialEq,
 )]
-#[diesel(primary_key(id))]
+#[diesel(primary_key(event_id))]
+#[diesel(table_name = events)]
 #[diesel(check_for_backend(diesel::pg::Pg))]
 pub struct Event {
-    pub id: i32,
     announcement_signature: Vec<u8>,
     oracle_event: Vec<u8>,
     pub name: String,
@@ -30,11 +30,13 @@ pub struct Event {
     pub attestation_event_id: Option<Vec<u8>>,
     created_at: chrono::NaiveDateTime,
     updated_at: chrono::NaiveDateTime,
+    pub event_id: String,
 }
 
 #[derive(Insertable, AsChangeset)]
 #[diesel(table_name = events)]
 pub struct NewEvent<'a> {
+    pub event_id: String,
     pub announcement_signature: Vec<u8>,
     pub oracle_event: Vec<u8>,
     pub name: &'a str,
@@ -68,23 +70,19 @@ impl Event {
         Ok(count)
     }
 
-    pub fn get_by_id(conn: &mut PgConnection, id: i32) -> anyhow::Result<Option<Self>> {
-        Ok(events::table.find(id).first::<Self>(conn).optional()?)
-    }
-
-    pub fn get_by_name(conn: &mut PgConnection, name: &str) -> anyhow::Result<Option<Self>> {
-        Ok(events::table
-            .filter(events::name.eq(name))
-            .first::<Self>(conn)
-            .optional()?)
-    }
-
     pub fn get_by_event_id(
         conn: &mut PgConnection,
         event_id: String,
     ) -> anyhow::Result<Option<Self>> {
         Ok(events::table
-            .filter(events::name.eq(event_id))
+            .find(event_id)
+            .first::<Self>(conn)
+            .optional()?)
+    }
+
+    pub fn get_by_name(conn: &mut PgConnection, name: &str) -> anyhow::Result<Option<Self>> {
+        Ok(events::table
+            .filter(events::name.eq(name))
             .first::<Self>(conn)
             .optional()?)
     }

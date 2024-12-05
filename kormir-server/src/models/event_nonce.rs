@@ -20,20 +20,20 @@ use super::schema::event_nonces;
 #[diesel(check_for_backend(diesel::pg::Pg))]
 pub struct EventNonce {
     pub id: i32,
-    pub event_id: i32,
     pub index: i32,
     nonce: Vec<u8>,
     pub signature: Option<Vec<u8>>,
     pub outcome: Option<String>,
     created_at: chrono::NaiveDateTime,
     updated_at: chrono::NaiveDateTime,
+    pub event_id: Option<String>,
 }
 
 #[derive(Insertable, AsChangeset)]
 #[diesel(table_name = event_nonces)]
 pub struct NewEventNonce {
     pub id: i32,
-    pub event_id: i32,
+    pub event_id: String,
     pub index: i32,
     pub nonce: Vec<u8>,
 }
@@ -72,7 +72,7 @@ impl EventNonce {
             .optional()?)
     }
 
-    pub fn get_by_event_id(conn: &mut PgConnection, event_id: i32) -> anyhow::Result<Vec<Self>> {
+    pub fn get_by_event_id(conn: &mut PgConnection, event_id: String) -> anyhow::Result<Vec<Self>> {
         Ok(event_nonces::table
             .filter(event_nonces::event_id.eq(event_id))
             .order_by(event_nonces::index.asc())

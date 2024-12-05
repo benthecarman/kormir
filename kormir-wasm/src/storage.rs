@@ -15,8 +15,8 @@ pub const NSEC_KEY: &str = "nsec";
 const NONCE_INDEX_KEY: &str = "nonce_index";
 const ORACLE_DATA_PREFIX: &str = "oracle_data/";
 
-fn get_oracle_data_key(id: u32) -> String {
-    format!("{ORACLE_DATA_PREFIX}{id}")
+fn get_oracle_data_key(event_id: String) -> String {
+    format!("{ORACLE_DATA_PREFIX}{event_id}")
 }
 
 #[derive(Debug, Clone)]
@@ -88,37 +88,41 @@ impl IndexedDb {
 
     pub async fn add_announcement_event_id(
         &self,
-        id: u32,
         event_id: String,
+        nostr_event_id: String,
     ) -> Result<(), JsError> {
         let tx = self
             .rexie
             .transaction(&[OBJECT_STORE_NAME], TransactionMode::ReadWrite)?;
         let store = tx.store(OBJECT_STORE_NAME)?;
-        let key = JsValue::from_serde(&get_oracle_data_key(id))?;
+        let key = JsValue::from_serde(&get_oracle_data_key(event_id))?;
         let js = store.get(&key).await?;
         let mut event: OracleEventData = js.into_serde()?;
-        event.announcement_event_id = Some(event_id);
+        event.announcement_event_id = Some(nostr_event_id);
         store.put(&JsValue::from_serde(&event)?, Some(&key)).await?;
         tx.done().await?;
         Ok(())
     }
 
-    pub async fn add_attestation_event_id(&self, id: u32, event_id: String) -> Result<(), JsError> {
+    pub async fn add_attestation_event_id(
+        &self,
+        event_id: String,
+        nostr_event_id: String,
+    ) -> Result<(), JsError> {
         let tx = self
             .rexie
             .transaction(&[OBJECT_STORE_NAME], TransactionMode::ReadWrite)?;
         let store = tx.store(OBJECT_STORE_NAME)?;
-        let key = JsValue::from_serde(&get_oracle_data_key(id))?;
+        let key = JsValue::from_serde(&get_oracle_data_key(event_id))?;
         let js = store.get(&key).await?;
         let mut event: OracleEventData = js.into_serde()?;
-        event.attestation_event_id = Some(event_id);
+        event.attestation_event_id = Some(nostr_event_id);
         store.put(&JsValue::from_serde(&event)?, Some(&key)).await?;
         tx.done().await?;
         Ok(())
     }
 
-    pub async fn list_events(&self) -> Result<Vec<(u32, OracleEventData)>, JsError> {
+    pub async fn list_events(&self) -> Result<Vec<(String, OracleEventData)>, JsError> {
         let tx = self
             .rexie
             .transaction(&[OBJECT_STORE_NAME], TransactionMode::ReadOnly)?;
@@ -131,11 +135,10 @@ impl IndexedDb {
             let key: String = key.into_serde()?;
             if key.starts_with(ORACLE_DATA_PREFIX) {
                 let data: OracleEventData = value.into_serde()?;
-                let id: u32 = key
+                let id = key
                     .strip_prefix(ORACLE_DATA_PREFIX)
                     .expect("just checked")
-                    .parse()
-                    .expect("id");
+                    .to_string();
                 vec.push((id, data))
             }
         }
@@ -172,44 +175,46 @@ impl Storage for IndexedDb {
         &self,
         announcement: OracleAnnouncement,
         indexes: Vec<u32>,
-    ) -> Result<u32, Error> {
-        // generate random id
-        let id = *indexes.first().unwrap();
+    ) -> Result<String, Error> {
         let event = OracleEventData {
-            id: Some(id),
-            announcement,
+            event_id: announcement.oracle_event.event_id.clone(),
+            announcement: announcement.clone(),
             indexes,
             signatures: Default::default(),
             announcement_event_id: None,
             attestation_event_id: None,
         };
 
-        self.save_to_indexed_db(get_oracle_data_key(id), event)
+        self.save_to_indexed_db(get_oracle_data_key(event.event_id.clone()), event)
             .await?;
 
-        Ok(id)
+        Ok(announcement.oracle_event.event_id.clone())
     }
 
     async fn save_signatures(
         &self,
-        id: u32,
+        event_id: String,
         sigs: Vec<(String, Signature)>,
     ) -> Result<OracleEventData, Error> {
-        let mut event = self.get_event(id).await?.ok_or(Error::NotFound)?;
+        let mut event = self
+            .get_event(event_id.clone())
+            .await?
+            .ok_or(Error::NotFound)?;
         if !event.signatures.is_empty() {
             return Err(Error::EventAlreadySigned);
         }
 
         event.signatures = sigs;
-        self.save_to_indexed_db(get_oracle_data_key(id), &event)
+        self.save_to_indexed_db(get_oracle_data_key(event_id), &event)
             .await?;
 
         Ok(event)
     }
 
-    async fn get_event(&self, id: u32) -> Result<Option<OracleEventData>, Error> {
-        let event: Option<OracleEventData> =
-            self.get_from_indexed_db(get_oracle_data_key(id)).await?;
+    async fn get_event(&self, event_id: String) -> Result<Option<OracleEventData>, Error> {
+        let event: Option<OracleEventData> = self
+            .get_from_indexed_db(get_oracle_data_key(event_id))
+            .await?;
         Ok(event)
     }
 }

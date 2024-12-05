@@ -58,9 +58,13 @@ pub struct CreateEnumEvent {
 }
 
 async fn create_enum_event_impl(state: &State, body: CreateEnumEvent) -> anyhow::Result<String> {
-    let (id, ann) = state
+    let ann = state
         .oracle
-        .create_enum_event(body.event_id, body.outcomes, body.event_maturity_epoch)
+        .create_enum_event(
+            body.event_id.clone(),
+            body.outcomes,
+            body.event_maturity_epoch,
+        )
         .await?;
     let hex = hex::encode(ann.encode());
 
@@ -82,7 +86,7 @@ async fn create_enum_event_impl(state: &State, body: CreateEnumEvent) -> anyhow:
     state
         .oracle
         .storage
-        .add_announcement_event_id(id, event.id)
+        .add_announcement_event_id(body.event_id, event.id)
         .await?;
 
     log::debug!(
@@ -127,17 +131,24 @@ pub async fn create_enum_event(
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct SignEnumEvent {
-    pub id: u32,
+    pub event_id: String,
     pub outcome: String,
 }
 
 async fn sign_enum_event_impl(state: &State, body: SignEnumEvent) -> anyhow::Result<String> {
-    let att = state.oracle.sign_enum_event(body.id, body.outcome).await?;
+    let att = state
+        .oracle
+        .sign_enum_event(body.event_id.clone(), body.outcome)
+        .await?;
     let hex = hex::encode(att.encode());
 
     log::info!("Signed enum event: {hex}");
 
-    let data = state.oracle.storage.get_event(body.id).await?;
+    let data = state
+        .oracle
+        .storage
+        .get_event(body.event_id.clone())
+        .await?;
     let event_id = data
         .and_then(|d| {
             d.announcement_event_id
@@ -153,7 +164,7 @@ async fn sign_enum_event_impl(state: &State, body: SignEnumEvent) -> anyhow::Res
     state
         .oracle
         .storage
-        .add_attestation_event_id(body.id, event.id)
+        .add_attestation_event_id(body.event_id, event.id)
         .await?;
 
     log::debug!(
@@ -196,10 +207,10 @@ async fn create_numeric_event_impl(
     state: &State,
     body: crate::routes::CreateNumericEvent,
 ) -> anyhow::Result<String> {
-    let (id, ann) = state
+    let ann = state
         .oracle
         .create_numeric_event(
-            body.event_id,
+            body.event_id.clone(),
             body.num_digits.unwrap_or(18),
             body.is_signed.unwrap_or(false),
             body.precision.unwrap_or(0),
@@ -227,7 +238,7 @@ async fn create_numeric_event_impl(
     state
         .oracle
         .storage
-        .add_announcement_event_id(id, event.id)
+        .add_announcement_event_id(body.event_id, event.id)
         .await?;
 
     log::debug!(
@@ -270,15 +281,11 @@ pub async fn create_numeric_event(
     }
 }
 
-pub fn get_oracle_announcement_impl(
+pub async fn get_oracle_announcement_impl(
     state: &State,
     event_id: String,
 ) -> anyhow::Result<OracleAnnouncement> {
-    if let Some(event) = state
-        .oracle
-        .storage
-        .get_oracle_event_by_event_id(event_id)?
-    {
+    if let Some(event) = state.oracle.storage.get_event(event_id).await? {
         Ok(event.announcement)
     } else {
         Err(anyhow::anyhow!(
@@ -291,7 +298,7 @@ pub async fn get_oracle_announcement(
     Extension(state): Extension<State>,
     Path(event_id): Path<String>,
 ) -> Result<Json<OracleAnnouncement>, (StatusCode, String)> {
-    match crate::routes::get_oracle_announcement_impl(&state, event_id) {
+    match crate::routes::get_oracle_announcement_impl(&state, event_id).await {
         Ok(ann) => Ok(Json(ann)),
         Err(e) => {
             eprintln!("Error getting announcement by event_id. {:?}", e);
@@ -303,15 +310,11 @@ pub async fn get_oracle_announcement(
     }
 }
 
-pub fn get_oracle_attestation_impl(
+pub async fn get_oracle_attestation_impl(
     state: &State,
     event_id: String,
 ) -> anyhow::Result<OracleAttestation> {
-    let Some(event) = state
-        .oracle
-        .storage
-        .get_oracle_event_by_event_id(event_id.clone())?
-    else {
+    let Some(event) = state.oracle.storage.get_event(event_id.clone()).await? else {
         return Err(anyhow::anyhow!(
             "Announcement by event id is not found in storage."
         ));
@@ -339,7 +342,7 @@ pub async fn get_oracle_attestation(
     Extension(state): Extension<State>,
     Path(event_id): Path<String>,
 ) -> Result<Json<OracleAttestation>, (StatusCode, String)> {
-    match crate::routes::get_oracle_attestation_impl(&state, event_id) {
+    match crate::routes::get_oracle_attestation_impl(&state, event_id).await {
         Ok(att) => Ok(Json(att)),
         Err(e) => {
             eprintln!("Error getting attestation by event_id. {:?}", e);
@@ -353,7 +356,7 @@ pub async fn get_oracle_attestation(
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct SignNumericEvent {
-    pub id: u32,
+    pub event_id: String,
     pub outcome: i64,
 }
 
@@ -363,13 +366,17 @@ async fn sign_numeric_event_impl(
 ) -> anyhow::Result<String> {
     let att = state
         .oracle
-        .sign_numeric_event(body.id, body.outcome)
+        .sign_numeric_event(body.event_id.clone(), body.outcome)
         .await?;
     let hex = hex::encode(att.encode());
 
     log::info!("Signed numeric event: {hex}");
 
-    let data = state.oracle.storage.get_event(body.id).await?;
+    let data = state
+        .oracle
+        .storage
+        .get_event(body.event_id.clone())
+        .await?;
     let event_id = data
         .and_then(|d| {
             d.announcement_event_id
@@ -385,7 +392,7 @@ async fn sign_numeric_event_impl(
     state
         .oracle
         .storage
-        .add_attestation_event_id(body.id, event.id)
+        .add_attestation_event_id(body.event_id, event.id)
         .await?;
 
     log::debug!(
@@ -427,7 +434,6 @@ fn list_events_json(events: &Vec<OracleEventData>) -> Json<Value> {
 
 #[derive(Debug, Clone, Serialize)]
 struct HexEvent {
-    pub id: Option<u32>,
     pub event_id: String,
     pub event_maturity_epoch: u32,
     pub announcement: String,
@@ -440,7 +446,6 @@ fn list_events_hex(events: &[OracleEventData]) -> Json<Value> {
         .map(|e| {
             let attestation = assemble_attestation(e);
             HexEvent {
-                id: e.id,
                 event_id: e.announcement.oracle_event.event_id.clone(),
                 event_maturity_epoch: e.announcement.oracle_event.event_maturity_epoch,
                 announcement: hex::encode(e.announcement.encode()),
@@ -457,7 +462,6 @@ fn list_events_tlv(events: &[OracleEventData]) -> Json<Value> {
         .map(|e| {
             let attestation = assemble_attestation(e);
             HexEvent {
-                id: e.id,
                 event_id: e.announcement.oracle_event.event_id.clone(),
                 event_maturity_epoch: e.announcement.oracle_event.event_maturity_epoch,
                 announcement: {

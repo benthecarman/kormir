@@ -3,19 +3,18 @@
 diesel::table! {
     event_nonces (id) {
         id -> Int4,
-        event_id -> Int4,
         index -> Int4,
         nonce -> Bytea,
         signature -> Nullable<Bytea>,
         outcome -> Nullable<Text>,
         created_at -> Timestamp,
         updated_at -> Timestamp,
+        event_id -> Nullable<Text>,
     }
 }
 
 diesel::table! {
-    events (id) {
-        id -> Int4,
+    events (event_id) {
         announcement_signature -> Bytea,
         oracle_event -> Bytea,
         name -> Text,
@@ -24,6 +23,7 @@ diesel::table! {
         attestation_event_id -> Nullable<Bytea>,
         created_at -> Timestamp,
         updated_at -> Timestamp,
+        event_id -> Text,
     }
 }
 

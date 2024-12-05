@@ -51,7 +51,7 @@ impl PostgresStorage {
 
             let mut oracle_events = Vec::with_capacity(events.len());
             for event in events {
-                let mut event_nonces = EventNonce::get_by_event_id(conn, event.id)?;
+                let mut event_nonces = EventNonce::get_by_event_id(conn, event.event_id.clone())?;
                 event_nonces.sort_by_key(|nonce| nonce.index);
 
                 let indexes = event_nonces
@@ -69,7 +69,7 @@ impl PostgresStorage {
                 let attestation_event_id = event.attestation_event_id().map(|att| att.to_string());
 
                 let data = OracleEventData {
-                    id: Some(event.id as u32),
+                    event_id: event.oracle_event().event_id,
                     announcement: OracleAnnouncement {
                         announcement_signature: event.announcement_signature(),
                         oracle_public_key: self.oracle_public_key,
@@ -88,50 +88,53 @@ impl PostgresStorage {
         .map_err(|_| Error::StorageFailure)
     }
 
-    pub fn get_oracle_event_by_event_id(
+    // pub fn get_oracle_event_by_event_id(
+    //     &self,
+    //     event_id: String,
+    // ) -> anyhow::Result<Option<OracleEventData>> {
+    //     let mut conn = self.db_pool.get().map_err(|_| Error::StorageFailure)?;
+    //     let Some(event) = Event::get_by_event_id(&mut conn, event_id)? else {
+    //         return Ok(None);
+    //     };
+    //     let event_nonces = EventNonce::get_by_event_id(&mut conn, event.id)?;
+
+    //     let indexes = event_nonces
+    //         .iter()
+    //         .map(|nonce| nonce.index as u32)
+    //         .collect::<Vec<_>>();
+
+    //     let signatures = event_nonces
+    //         .into_iter()
+    //         .flat_map(|nonce| nonce.outcome_and_sig())
+    //         .collect();
+
+    //     let announcement_event_id = event.announcement_event_id().map(|ann| ann.to_string());
+    //     let attestation_event_id = event.attestation_event_id().map(|att| att.to_string());
+
+    //     Ok(Some(OracleEventData {
+    //         id: Some(event.id as u32),
+    //         announcement: OracleAnnouncement {
+    //             announcement_signature: event.announcement_signature(),
+    //             oracle_public_key: self.oracle_public_key,
+    //             oracle_event: event.oracle_event(),
+    //         },
+    //         indexes,
+    //         signatures,
+    //         announcement_event_id,
+    //         attestation_event_id,
+    //     }))
+    // }
+
+    pub async fn add_announcement_event_id(
         &self,
         event_id: String,
-    ) -> anyhow::Result<Option<OracleEventData>> {
+        nostr_event_id: EventId,
+    ) -> Result<(), Error> {
         let mut conn = self.db_pool.get().map_err(|_| Error::StorageFailure)?;
-        let Some(event) = Event::get_by_event_id(&mut conn, event_id)? else {
-            return Ok(None);
-        };
-        let event_nonces = EventNonce::get_by_event_id(&mut conn, event.id)?;
-
-        let indexes = event_nonces
-            .iter()
-            .map(|nonce| nonce.index as u32)
-            .collect::<Vec<_>>();
-
-        let signatures = event_nonces
-            .into_iter()
-            .flat_map(|nonce| nonce.outcome_and_sig())
-            .collect();
-
-        let announcement_event_id = event.announcement_event_id().map(|ann| ann.to_string());
-        let attestation_event_id = event.attestation_event_id().map(|att| att.to_string());
-
-        Ok(Some(OracleEventData {
-            id: Some(event.id as u32),
-            announcement: OracleAnnouncement {
-                announcement_signature: event.announcement_signature(),
-                oracle_public_key: self.oracle_public_key,
-                oracle_event: event.oracle_event(),
-            },
-            indexes,
-            signatures,
-            announcement_event_id,
-            attestation_event_id,
-        }))
-    }
-
-    pub async fn add_announcement_event_id(&self, id: u32, event_id: EventId) -> Result<(), Error> {
-        let mut conn = self.db_pool.get().map_err(|_| Error::StorageFailure)?;
-        let id = id as i32;
 
         diesel::update(schema::events::table)
-            .filter(schema::events::id.eq(id))
-            .set(schema::events::announcement_event_id.eq(Some(event_id.as_bytes().to_vec())))
+            .filter(schema::events::event_id.eq(event_id))
+            .set(schema::events::announcement_event_id.eq(Some(nostr_event_id.as_bytes().to_vec())))
             .execute(&mut conn)
             .map_err(|e| {
                 log::error!("Failed to add announcement event id: {}", e);
@@ -141,13 +144,16 @@ impl PostgresStorage {
         Ok(())
     }
 
-    pub async fn add_attestation_event_id(&self, id: u32, event_id: EventId) -> Result<(), Error> {
+    pub async fn add_attestation_event_id(
+        &self,
+        event_id: String,
+        nostr_event_id: EventId,
+    ) -> Result<(), Error> {
         let mut conn = self.db_pool.get().map_err(|_| Error::StorageFailure)?;
-        let id = id as i32;
 
         diesel::update(schema::events::table)
-            .filter(schema::events::id.eq(id))
-            .set(schema::events::attestation_event_id.eq(Some(event_id.as_bytes().to_vec())))
+            .filter(schema::events::event_id.eq(event_id))
+            .set(schema::events::attestation_event_id.eq(Some(nostr_event_id.as_bytes().to_vec())))
             .execute(&mut conn)
             .map_err(|e| {
                 log::error!("Failed to add announcement event id: {}", e);
@@ -173,12 +179,13 @@ impl Storage for PostgresStorage {
         &self,
         announcement: OracleAnnouncement,
         indexes: Vec<u32>,
-    ) -> Result<u32, Error> {
+    ) -> Result<String, Error> {
         let is_enum = match announcement.oracle_event.event_descriptor {
             EventDescriptor::EnumEvent(_) => true,
             EventDescriptor::DigitDecompositionEvent(_) => false,
         };
         let new_event = NewEvent {
+            event_id: announcement.oracle_event.event_id.clone(),
             announcement_signature: announcement.announcement_signature.encode(),
             oracle_event: announcement.oracle_event.encode(),
             name: &announcement.oracle_event.event_id,
@@ -187,9 +194,9 @@ impl Storage for PostgresStorage {
 
         let mut conn = self.db_pool.get().map_err(|_| Error::StorageFailure)?;
         conn.transaction::<_, anyhow::Error, _>(|conn| {
-            let event_id = diesel::insert_into(schema::events::table)
+            let event_id: String = diesel::insert_into(schema::events::table)
                 .values(&new_event)
-                .returning(schema::events::id)
+                .returning(schema::events::event_id)
                 .get_result(conn)?;
 
             let new_event_nonces = indexes
@@ -197,7 +204,7 @@ impl Storage for PostgresStorage {
                 .zip(announcement.oracle_event.oracle_nonces)
                 .map(|(index, nonce)| NewEventNonce {
                     id: index as i32,
-                    event_id,
+                    event_id: event_id.clone(),
                     index: index as i32,
                     nonce: nonce.serialize().to_vec(),
                 })
@@ -207,23 +214,23 @@ impl Storage for PostgresStorage {
                 .values(&new_event_nonces)
                 .execute(conn)?;
 
-            Ok(event_id as u32)
+            Ok(event_id)
         })
         .map_err(|_| Error::StorageFailure)
     }
 
     async fn save_signatures(
         &self,
-        id: u32,
+        event_id: String,
         signatures: Vec<(String, Signature)>,
     ) -> Result<OracleEventData, Error> {
-        let id = id as i32;
         let mut conn = self.db_pool.get().map_err(|_| Error::StorageFailure)?;
 
         conn.transaction(|conn| {
-            let event = Event::get_by_id(conn, id)?.ok_or(anyhow!("Not Found"))?;
+            let event =
+                Event::get_by_event_id(conn, event_id.clone())?.ok_or(anyhow!("Not Found"))?;
 
-            let mut event_nonces = EventNonce::get_by_event_id(conn, id)?;
+            let mut event_nonces = EventNonce::get_by_event_id(conn, event_id.clone())?;
             if event_nonces.len() != signatures.len() {
                 return Err(anyhow!("Invalid number of signatures"));
             }
@@ -243,7 +250,7 @@ impl Storage for PostgresStorage {
                 .collect::<anyhow::Result<Vec<_>>>()?;
 
             Ok(OracleEventData {
-                id: Some(id as u32),
+                event_id,
                 announcement: OracleAnnouncement {
                     announcement_signature: event.announcement_signature(),
                     oracle_public_key: self.oracle_public_key,
@@ -258,16 +265,15 @@ impl Storage for PostgresStorage {
         .map_err(|_| Error::StorageFailure)
     }
 
-    async fn get_event(&self, id: u32) -> Result<Option<OracleEventData>, Error> {
-        let id = id as i32;
+    async fn get_event(&self, event_id: String) -> Result<Option<OracleEventData>, Error> {
         let mut conn = self.db_pool.get().map_err(|_| Error::StorageFailure)?;
 
         conn.transaction::<_, anyhow::Error, _>(|conn| {
-            let Some(event) = Event::get_by_id(conn, id)? else {
+            let Some(event) = Event::get_by_event_id(conn, event_id.clone())? else {
                 return Ok(None);
             };
 
-            let mut event_nonces = EventNonce::get_by_event_id(conn, id)?;
+            let mut event_nonces = EventNonce::get_by_event_id(conn, event_id.clone())?;
             event_nonces.sort_by_key(|nonce| nonce.index);
 
             let indexes = event_nonces
@@ -281,7 +287,7 @@ impl Storage for PostgresStorage {
                 .collect();
 
             Ok(Some(OracleEventData {
-                id: Some(id as u32),
+                event_id,
                 announcement: OracleAnnouncement {
                     announcement_signature: event.announcement_signature(),
                     oracle_public_key: self.oracle_public_key,
