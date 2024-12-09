@@ -88,9 +88,9 @@ impl Kormir {
         outcomes: Vec<String>,
         event_maturity_epoch: u32,
     ) -> Result<String, JsError> {
-        let (id, ann) = self
+        let ann = self
             .oracle
-            .create_enum_event(event_id, outcomes, event_maturity_epoch)
+            .create_enum_event(event_id.clone(), outcomes, event_maturity_epoch)
             .await?;
 
         let hex = hex::encode(ann.encode());
@@ -106,7 +106,7 @@ impl Kormir {
         log::debug!("Created nostr event: {}", event.as_json());
 
         self.storage
-            .add_announcement_event_id(id, event.id.to_hex())
+            .add_announcement_event_id(event_id, event.id.to_hex())
             .await?;
 
         log::debug!(
@@ -121,20 +121,31 @@ impl Kormir {
         Ok(hex)
     }
 
-    pub async fn sign_enum_event(&self, id: u32, outcome: String) -> Result<String, JsError> {
-        let attestation = self.oracle.sign_enum_event(id, outcome).await?;
+    pub async fn sign_enum_event(
+        &self,
+        event_id: String,
+        outcome: String,
+    ) -> Result<String, JsError> {
+        let attestation = self
+            .oracle
+            .sign_enum_event(event_id.clone(), outcome)
+            .await?;
 
-        let event = self.storage.get_event(id).await?.ok_or(JsError::NotFound)?;
-        let event_id = EventId::from_hex(event.announcement_event_id.unwrap()).unwrap();
+        let event = self
+            .storage
+            .get_event(event_id.clone())
+            .await?
+            .ok_or(JsError::NotFound)?;
+        let nostr_event_id = EventId::from_hex(event.announcement_event_id.unwrap()).unwrap();
 
         let event = kormir::nostr_events::create_attestation_event(
             &self.oracle.nostr_keys(),
             &attestation,
-            event_id,
+            nostr_event_id,
         )?;
 
         self.storage
-            .add_attestation_event_id(id, event.id.to_hex())
+            .add_attestation_event_id(event_id, event.id.to_hex())
             .await?;
 
         self.client.send_event(event).await?;
@@ -151,10 +162,10 @@ impl Kormir {
         unit: String,
         event_maturity_epoch: u32,
     ) -> Result<String, JsError> {
-        let (id, ann) = self
+        let ann = self
             .oracle
             .create_numeric_event(
-                event_id,
+                event_id.clone(),
                 num_digits,
                 is_signed,
                 precision,
@@ -176,7 +187,7 @@ impl Kormir {
         log::debug!("Created nostr event: {}", event.as_json());
 
         self.storage
-            .add_announcement_event_id(id, event.id.to_hex())
+            .add_announcement_event_id(event_id, event.id.to_hex())
             .await?;
 
         log::debug!(
@@ -191,20 +202,31 @@ impl Kormir {
         Ok(hex)
     }
 
-    pub async fn sign_numeric_event(&self, id: u32, outcome: i64) -> Result<String, JsError> {
-        let attestation = self.oracle.sign_numeric_event(id, outcome).await?;
+    pub async fn sign_numeric_event(
+        &self,
+        event_id: String,
+        outcome: i64,
+    ) -> Result<String, JsError> {
+        let attestation = self
+            .oracle
+            .sign_numeric_event(event_id.clone(), outcome)
+            .await?;
 
-        let event = self.storage.get_event(id).await?.ok_or(JsError::NotFound)?;
-        let event_id = EventId::from_hex(event.announcement_event_id.unwrap()).unwrap();
+        let event = self
+            .storage
+            .get_event(event_id.clone())
+            .await?
+            .ok_or(JsError::NotFound)?;
+        let nostr_event_id = EventId::from_hex(event.announcement_event_id.unwrap()).unwrap();
 
         let event = kormir::nostr_events::create_attestation_event(
             &self.oracle.nostr_keys(),
             &attestation,
-            event_id,
+            nostr_event_id,
         )?;
 
         self.storage
-            .add_attestation_event_id(id, event.id.to_hex())
+            .add_attestation_event_id(event_id, event.id.to_hex())
             .await?;
 
         self.client.send_event(event).await?;

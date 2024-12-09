@@ -1,5 +1,4 @@
 use crate::error::Error;
-use bitcoin::secp256k1::rand;
 use bitcoin::secp256k1::schnorr::Signature;
 use ddk_messages::oracle_msgs::OracleAnnouncement;
 use serde::{Deserialize, Serialize};
@@ -17,23 +16,23 @@ pub trait Storage {
         &self,
         announcement: OracleAnnouncement,
         indexes: Vec<u32>,
-    ) -> Result<u32, Error>;
+    ) -> Result<String, Error>;
 
     /// Save signatures and outcomes for a given event
     async fn save_signatures(
         &self,
-        id: u32,
+        event_id: String,
         sigs: Vec<(String, Signature)>,
     ) -> Result<OracleEventData, Error>;
 
     /// Get the announcement data for the given id
-    async fn get_event(&self, id: u32) -> Result<Option<OracleEventData>, Error>;
+    async fn get_event(&self, event_id: String) -> Result<Option<OracleEventData>, Error>;
 }
 
 /// Data saved for an oracle announcement
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OracleEventData {
-    pub id: Option<u32>,
+    pub event_id: String,
     pub announcement: OracleAnnouncement,
     pub indexes: Vec<u32>,
     pub signatures: Vec<(String, Signature)>,
@@ -46,7 +45,7 @@ pub struct OracleEventData {
 #[derive(Debug, Clone)]
 pub struct MemoryStorage {
     current_index: Arc<AtomicU32>,
-    data: Arc<RwLock<HashMap<u32, OracleEventData>>>,
+    data: Arc<RwLock<HashMap<String, OracleEventData>>>,
 }
 
 impl MemoryStorage {
@@ -79,11 +78,10 @@ impl Storage for MemoryStorage {
         &self,
         announcement: OracleAnnouncement,
         indexes: Vec<u32>,
-    ) -> Result<u32, Error> {
-        // generate random id
-        let id = rand::random::<u32>();
+    ) -> Result<String, Error> {
+        let event_id = announcement.oracle_event.event_id.clone();
         let event = OracleEventData {
-            id: Some(id),
+            event_id: event_id.clone(),
             announcement,
             indexes,
             signatures: Default::default(),
@@ -94,14 +92,14 @@ impl Storage for MemoryStorage {
         };
 
         let mut data = self.data.try_write().unwrap();
-        data.insert(id, event);
+        data.insert(event_id.clone(), event);
 
-        Ok(id)
+        Ok(event_id)
     }
 
     async fn save_signatures(
         &self,
-        id: u32,
+        id: String,
         sigs: Vec<(String, Signature)>,
     ) -> Result<OracleEventData, Error> {
         let mut data = self.data.try_write().unwrap();
@@ -119,8 +117,8 @@ impl Storage for MemoryStorage {
         Ok(event)
     }
 
-    async fn get_event(&self, id: u32) -> Result<Option<OracleEventData>, Error> {
+    async fn get_event(&self, event_id: String) -> Result<Option<OracleEventData>, Error> {
         let data = self.data.try_read().unwrap();
-        Ok(data.get(&id).cloned())
+        Ok(data.get(&event_id).cloned())
     }
 }
