@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.2](https://github.com/bennyhodl/kormir/compare/kormir-wasm-v0.3.1...kormir-wasm-v0.3.2) - 2024-12-09
+
+### Other
+
+- Event Id as primary key
+
 ## [0.3.1](https://github.com/bennyhodl/kormir/compare/kormir-wasm-v0.3.0...kormir-wasm-v0.3.1) - 2024-11-27
 
 ### Other
