@@ -36,38 +36,38 @@ jobs:
       - name: Check docs
         run: cargo doc
 
-  wasm:
-    name: Build WASM binary
-    runs-on: ubuntu-latest
-    timeout-minutes: 60
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: nightly-2023-10-24
-          target: wasm32-unknown-unknown
-          override: true
-          profile: minimal
+  # wasm:
+  #   name: Build WASM binary
+  #   runs-on: ubuntu-latest
+  #   timeout-minutes: 60
+  #   steps:
+  #     - uses: actions/checkout@v3
+  #     - uses: actions-rs/toolchain@v1
+  #       with:
+  #         toolchain: nightly-2023-10-24
+  #         target: wasm32-unknown-unknown
+  #         override: true
+  #         profile: minimal
 
-      - uses: jetli/wasm-pack-action@v0.4.0
-        with:
-          version: 'v0.12.1'
+  #     - uses: jetli/wasm-pack-action@v0.4.0
+  #       with:
+  #         version: 'v0.12.1'
 
-      - uses: actions/cache@v2
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: cargo-${{ runner.os }}-wasn-tests-${{ hashFiles('**/Cargo.toml', '**/Cargo.lock') }}
-          restore-keys: |
-            cargo-${{ runner.os }}-wasn-tests-
-            cargo-${{ runner.os }}-
+  #     - uses: actions/cache@v2
+  #       with:
+  #         path: |
+  #           ~/.cargo/registry
+  #           ~/.cargo/git
+  #           target
+  #         key: cargo-${{ runner.os }}-wasn-tests-${{ hashFiles('**/Cargo.toml', '**/Cargo.lock') }}
+  #         restore-keys: |
+  #           cargo-${{ runner.os }}-wasn-tests-
+  #           cargo-${{ runner.os }}-
 
-      - name: Build wasm package
-        env:
-          RUSTUP_TOOLCHAIN: nightly-2023-10-24
-        run: wasm-pack build ./kormir-wasm --release --target web
+  #     - name: Build wasm package
+  #       env:
+  #         RUSTUP_TOOLCHAIN: nightly-2023-10-24
+  #       run: wasm-pack build ./kormir-wasm --release --target web
 
   wasm_checks:
     name: Rust Wasm Checks
@@ -86,7 +86,7 @@ jobs:
       - name: Setup trunk
         uses: jetli/trunk-action@v0.1.0
         with:
-          version: 'latest'
+          version: "latest"
 
       - uses: actions/cache@v2
         with:
