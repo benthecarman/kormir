@@ -55,6 +55,14 @@ impl MemoryStorage {
             data: Arc::new(RwLock::new(HashMap::new())),
         }
     }
+
+    pub fn list_events(&self) -> Result<Vec<OracleEventData>, Error> {
+        let Ok(guard) = self.data.try_read() else {
+            return Err(Error::Internal);
+        };
+
+        Ok(guard.values().cloned().collect())
+    }
 }
 
 impl Default for MemoryStorage {
