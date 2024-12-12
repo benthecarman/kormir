@@ -617,6 +617,8 @@ dependencies = [
 [[package]]
 name = "dlc"
 version = "0.7.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fbcae4708c4b016eb24ea99e112daa312b70f4fc97fef922a4174f10a1486830"
 dependencies = [
  "bitcoin 0.32.2",
  "miniscript",
@@ -628,6 +630,8 @@ dependencies = [
 [[package]]
 name = "dlc-messages"
 version = "0.7.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a2720ffe49ba9d5427653d9694ef9b4af23b05d827f6433a588c85adf56335a3"
 dependencies = [
  "bitcoin 0.32.2",
  "dlc",
@@ -1121,7 +1125,7 @@ dependencies = [
 
 [[package]]
 name = "kormir"
-version = "0.4.0"
+version = "0.4.1"
 dependencies = [
  "base64 0.13.1",
  "bitcoin 0.32.2",
@@ -1138,7 +1142,7 @@ dependencies = [
 
 [[package]]
 name = "kormir-server"
-version = "0.3.2"
+version = "0.3.3"
 dependencies = [
  "anyhow",
  "axum",
@@ -1162,7 +1166,7 @@ dependencies = [
 
 [[package]]
 name = "kormir-wasm"
-version = "0.3.2"
+version = "0.3.3"
 dependencies = [
  "anyhow",
  "bip39",
