@@ -4,7 +4,7 @@ use axum::extract::Query;
 use axum::http::StatusCode;
 use axum::{Extension, Json};
 use bitcoin::key::XOnlyPublicKey;
-use ddk_messages::ser_impls::write_as_tlv;
+use dlc_messages::ser_impls::write_as_tlv;
 use kormir::lightning::util::ser::Writeable;
 use kormir::storage::{OracleEventData, Storage};
 use kormir::{OracleAnnouncement, OracleAttestation, Signature};

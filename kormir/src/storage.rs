@@ -1,6 +1,6 @@
 use crate::error::Error;
 use bitcoin::secp256k1::schnorr::Signature;
-use ddk_messages::oracle_msgs::OracleAnnouncement;
+use dlc_messages::oracle_msgs::OracleAnnouncement;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU32, Ordering};
